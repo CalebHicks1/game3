@@ -11,6 +11,7 @@ import (
 
 	_ "net/http/pprof"
 
+	"github.com/go-gl/mathgl/mgl32"
 	"github.com/gopxl/pixel/v2"
 	"github.com/gopxl/pixel/v2/backends/opengl"
 	"github.com/gopxl/pixel/v2/ext/imdraw"
@@ -152,6 +153,12 @@ func run() {
 	}
 
 	// SHADER ///////////////////////////////////////////////////////////////////////////////////////////////
+	// create uniform with light position
+	// need to convert the player world coords to screen coords
+
+	lightPos := mgl32.Vec2{0, 0}
+	win.Canvas().SetUniform("uLightPos", &lightPos)
+
 	var fragmentShader = `
 			#version 330 core
 
@@ -161,18 +168,24 @@ func run() {
 
 			uniform vec4 uTexBounds;
 			uniform sampler2D uTexture;
+			uniform vec2 uLightPos;
 
 			void main() {
 				// Get our current screen coordinate
 				vec2 t = (vTexCoords - uTexBounds.xy) / uTexBounds.zw;
 
-				// Sum our 3 color channels
-				float sum  = texture(uTexture, t).r;
-					sum += texture(uTexture, t).g;
-					sum += texture(uTexture, t).b;
+				// calculate the distance from the light
+				float dist = distance(t, uLightPos);
 
-				// Divide by 3, and set the output to the result
-				vec4 color = vec4( sum/3, sum/3, sum/3, 1.0);
+				// calculate the light intensity
+				float intensity = 0.5 / (1.0 + dist * dist);
+
+				// get the color from the texture
+				vec4 color = texture(uTexture, t);
+
+				// apply the light intensity
+				color *= intensity;
+				
 				fragColor = color;
 			}
 		`
@@ -226,6 +239,13 @@ func run() {
 		win.Clear(pixel.RGB(0, 0, 0))
 		canvas.Clear(pixel.RGB(0, 0, 0))
 		imd.Clear()
+
+		// convert player world coords to screen coords
+		// playerScreenPos := cam.Unproject(pixel.V(player.X, player.Y))
+
+		// xcoord := float32(playerScreenPos.X)
+		// ycoord := float32(playerScreenPos.Y)
+		lightPos = mgl32.Vec2{0, 0}
 
 		// for i, tree := range trees {
 		// 	tree.Draw(win, matrices[i])
