@@ -105,6 +105,9 @@ func run() {
 		panic(err)
 	}
 
+	// draw the player as a 1x2 red rectangle
+	canvas := opengl.NewCanvas(pixel.R(0, 0, 1200, 800))
+
 	// load tree spritesheet
 	spritesheet, err := loadPicture("trees.png")
 	if err != nil {
@@ -150,33 +153,33 @@ func run() {
 
 	// SHADER ///////////////////////////////////////////////////////////////////////////////////////////////
 	var fragmentShader = `
-		    #version 330 core
-			// The first line in glsl source code must always start with a version directive as seen above.
+			#version 330 core
 
-			// vTexCoords are the texture coordinates, provided by Pixel
 			in vec2  vTexCoords;
 
-			// fragColor is what the final result is and will be rendered to your screen.
 			out vec4 fragColor;
 
-			// uTexBounds is the texture's boundries, provided by Pixel.
 			uniform vec4 uTexBounds;
-
-			// uTexture is the actualy texture we are sampling from, also provided by Pixel.
 			uniform sampler2D uTexture;
 
 			void main() {
-				// t is set to the screen coordinate for the current fragment.
+				// Get our current screen coordinate
 				vec2 t = (vTexCoords - uTexBounds.xy) / uTexBounds.zw;
-				// And finally, we're telling the GPU that this fragment should be the color as sampled from our texture.
-				// fragColor = texture(uTexture, t);
-				fragColor = vec4(uTexBounds.w, 0, 0, 1);
+
+				// Sum our 3 color channels
+				float sum  = texture(uTexture, t).r;
+					sum += texture(uTexture, t).g;
+					sum += texture(uTexture, t).b;
+
+				// Divide by 3, and set the output to the result
+				vec4 color = vec4( sum/3, sum/3, sum/3, 1.0);
+				fragColor = color;
 			}
 		`
 
 	// GAME LOOP /////////////////////////////////////////////////////////////////////////////////////////////
+	win.Canvas().SetFragmentShader(fragmentShader)
 	for !win.Closed() {
-		win.Canvas().SetFragmentShader(fragmentShader)
 		dt := time.Since(last).Seconds()
 		last = time.Now()
 
@@ -200,7 +203,7 @@ func run() {
 		// lerp the camera position towards the gopher
 		camPos = pixel.Lerp(camPos, pixel.V(player.X, player.Y), 1-math.Pow(1.0/128, dt))
 		cam := pixel.IM.Scaled(camPos, camZoom).Moved(win.Bounds().Center().Sub(camPos))
-		win.SetMatrix(cam)
+		canvas.SetMatrix(cam)
 
 		// player movements
 		currSpeed := player.walkSpeed
@@ -221,6 +224,7 @@ func run() {
 		}
 
 		win.Clear(pixel.RGB(0, 0, 0))
+		canvas.Clear(pixel.RGB(0, 0, 0))
 		imd.Clear()
 
 		// for i, tree := range trees {
@@ -246,13 +250,15 @@ func run() {
 			}
 		}
 
-		// draw the player as a 1x2 red rectangle
 		imd.Color = pixel.RGB(0.8, 0.2, 0.2)
 		imd.Push(pixel.V(float64(player.X), float64(player.Y)))
 		imd.Push(pixel.V(float64(player.X+tileSize), float64(player.Y+(2*tileSize))))
 		imd.Rectangle(0)
 
-		imd.Draw(win)
+		imd.Draw(canvas)
+		sprite := pixel.NewSprite(canvas, canvas.Bounds())
+		sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
+
 		win.Update()
 
 		if win.JustPressed(pixel.KeySpace) {
