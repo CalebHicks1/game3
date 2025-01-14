@@ -110,16 +110,16 @@ func run() {
 	canvas := opengl.NewCanvas(pixel.R(0, 0, 1200, 800))
 
 	// load tree spritesheet
-	spritesheet, err := loadPicture("trees.png")
+	spritesheet, err := loadPicture("sprites/wall.png")
 	if err != nil {
 		panic(err)
 	}
 
 	// create tree frames from spritesheet
-	var treesFrames []pixel.Rect
+	var wallFrames []pixel.Rect
 	for x := spritesheet.Bounds().Min.X; x < spritesheet.Bounds().Max.X; x += 32 {
 		for y := spritesheet.Bounds().Min.Y; y < spritesheet.Bounds().Max.Y; y += 32 {
-			treesFrames = append(treesFrames, pixel.R(x, y, x+32, y+32))
+			wallFrames = append(wallFrames, pixel.R(x, y, x+32, y+32))
 		}
 	}
 
@@ -131,9 +131,10 @@ func run() {
 		camZoomSpeed = 1.2
 		// trees        []*pixel.Sprite
 		// matrices     []pixel.Matrix
-		tileGrid [gridWidth][gridHeight]*Tile
-		last     = time.Now()
-		imd      = imdraw.New(nil)
+		tileGrid  [gridWidth][gridHeight]*Tile
+		last      = time.Now()
+		imd       = imdraw.New(nil)
+		wallBatch = pixel.NewBatch(&pixel.TrianglesData{}, spritesheet)
 	)
 
 	// INIT /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -142,6 +143,23 @@ func run() {
 	// iterate the cellular automata a few times
 	for x := 0; x < 7; x++ {
 		tileGrid = iterateGrid(tileGrid)
+	}
+	// redraw the grid
+	wallBatch.Clear()
+	for x := 0; x < gridWidth; x++ {
+		for y := 0; y < gridHeight; y++ {
+			tile := tileGrid[x][y]
+			if tile.Type == TYPE_WALL {
+				// imd.Color = pixel.RGB(0.153, 0.160, 0.196)
+				wallSprite := pixel.NewSprite(spritesheet, wallFrames[0])
+				wallSprite.Draw(wallBatch, pixel.IM.Moved(pixel.V(float64(x*tileSize), float64(y*tileSize))))
+			}
+			// imd.Color = pixel.RGB(0, 0, 0)
+			// draw bottom left of tile
+
+			// // draw top right of tile
+			// imd.Rectangle(0)
+		}
 	}
 
 	// init player
@@ -178,20 +196,21 @@ func run() {
 				float dist = distance(t, uLightPos);
 
 				// calculate the light intensity
-				float intensity = 0.5 / (1.0 + dist*2);
+				float intensity = 1 / (1.0 + 3*dist);
 
 				// get the color from the texture
 				vec4 color = texture(uTexture, t);
 
 				// apply the light intensity
 				color *= intensity;
-				
+
 				fragColor = color;
 			}
 		`
 
 	// GAME LOOP /////////////////////////////////////////////////////////////////////////////////////////////
 	win.Canvas().SetFragmentShader(fragmentShader)
+
 	for !win.Closed() {
 		dt := time.Since(last).Seconds()
 		last = time.Now()
@@ -242,6 +261,7 @@ func run() {
 
 		// currently, we have the player pos in game space. Need to convert to screen space
 		// to pass to the shader
+		// TODO: create function to translate from game to screen coords
 		playerScreenPos := cam.Project(pixel.V(player.X, player.Y))
 
 		lightPos = mgl32.Vec2{float32(playerScreenPos.X / 1200), float32(playerScreenPos.Y / 800)}
@@ -251,42 +271,60 @@ func run() {
 		// }
 
 		// draw the grid
-		for x := 0; x < gridWidth; x++ {
-			for y := 0; y < gridHeight; y++ {
-				tile := tileGrid[x][y]
-				if tile.Type == TYPE_WALL {
-					imd.Color = pixel.RGB(0.153, 0.160, 0.196)
-				} else {
-					imd.Color = pixel.RGB(0.407, 0.54, 0.345)
-				}
-				// imd.Color = pixel.RGB(0, 0, 0)
-				// draw bottom left of tile
-				imd.Push(pixel.V(float64(x*tileSize), float64(y*tileSize)))
-
-				// draw top right of tile
-				imd.Push(pixel.V(float64((x+1)*tileSize), float64((y+1)*tileSize)))
-				imd.Rectangle(0)
-			}
-		}
 
 		imd.Color = pixel.RGB(0.8, 0.2, 0.2)
 		imd.Push(pixel.V(float64(player.X), float64(player.Y)))
 		imd.Push(pixel.V(float64(player.X+tileSize), float64(player.Y+(2*tileSize))))
 		imd.Rectangle(0)
 
+		if win.JustPressed(pixel.KeySpace) {
+			// iterate the grid
+			tileGrid = iterateGrid(tileGrid)
+			// redraw the grid
+			wallBatch.Clear()
+			for x := 0; x < gridWidth; x++ {
+				for y := 0; y < gridHeight; y++ {
+					tile := tileGrid[x][y]
+					if tile.Type == TYPE_WALL {
+						// imd.Color = pixel.RGB(0.153, 0.160, 0.196)
+						wallSprite := pixel.NewSprite(spritesheet, wallFrames[0])
+						wallSprite.Draw(wallBatch, pixel.IM.Moved(pixel.V(float64(x*tileSize), float64(y*tileSize))))
+					}
+					// imd.Color = pixel.RGB(0, 0, 0)
+					// draw bottom left of tile
+
+					// // draw top right of tile
+					// imd.Rectangle(0)
+				}
+			}
+		}
+		if win.JustPressed(pixel.KeyR) {
+			tileGrid = initGrid(tileGrid)
+			// redraw the grid
+			wallBatch.Clear()
+			for x := 0; x < gridWidth; x++ {
+				for y := 0; y < gridHeight; y++ {
+					tile := tileGrid[x][y]
+					if tile.Type == TYPE_WALL {
+						// imd.Color = pixel.RGB(0.153, 0.160, 0.196)
+						wallSprite := pixel.NewSprite(spritesheet, wallFrames[0])
+						wallSprite.Draw(wallBatch, pixel.IM.Moved(pixel.V(float64(x*tileSize), float64(y*tileSize))))
+					}
+					// imd.Color = pixel.RGB(0, 0, 0)
+					// draw bottom left of tile
+
+					// // draw top right of tile
+					// imd.Rectangle(0)
+				}
+			}
+		}
+
 		imd.Draw(canvas)
+		wallBatch.Draw(canvas)
 		sprite := pixel.NewSprite(canvas, canvas.Bounds())
 		sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 
 		win.Update()
-
-		if win.JustPressed(pixel.KeySpace) {
-			// iterate the grid
-			tileGrid = iterateGrid(tileGrid)
-		}
-		if win.JustPressed(pixel.KeyR) {
-			tileGrid = initGrid(tileGrid)
-		}
 	}
 }
 
