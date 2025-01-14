@@ -14,14 +14,6 @@ import (
 	"github.com/gopxl/pixel/v2"
 	"github.com/gopxl/pixel/v2/backends/opengl"
 	"github.com/gopxl/pixel/v2/ext/imdraw"
-	"golang.org/x/image/colornames"
-)
-
-// CONSTS ///////////////////////////////////////////////////////////////////////////////////////////////
-const (
-	gridWidth  = 300
-	gridHeight = 150
-	tileSize   = 32
 )
 
 func loadPicture(path string) (pixel.Picture, error) {
@@ -53,6 +45,48 @@ func initGrid(grid [gridWidth][gridHeight]*Tile) [gridWidth][gridHeight]*Tile {
 		}
 	}
 	return grid
+}
+
+func iterateGrid(grid [gridWidth][gridHeight]*Tile) [gridWidth][gridHeight]*Tile {
+	// do a round of cellular automata
+	// create a new grid to store the results
+	var newGrid [gridWidth][gridHeight]*Tile
+	for x := 0; x < gridWidth; x++ {
+		for y := 0; y < gridHeight; y++ {
+			newTile := Tile{
+				X:    x,
+				Y:    y,
+				Type: TYPE_FLOOR,
+			}
+			newGrid[x][y] = &newTile
+			// get neighbor nodes
+			wallCount := 0
+			floorCount := 0
+			for dx := -1; dx <= 1; dx++ {
+				for dy := -1; dy <= 1; dy++ {
+					// skip the center node
+					if dx == 0 && dy == 0 {
+						continue
+					}
+					// check bounds
+					if x+dx < 0 || x+dx >= gridWidth || y+dy < 0 || y+dy >= gridHeight {
+						continue
+					}
+					// check neighbor type
+					if grid[x+dx][y+dy].Type == TYPE_WALL {
+						wallCount++
+					} else {
+						floorCount++
+					}
+				}
+			}
+			if wallCount >= 4 {
+				newTile.Type = TYPE_WALL
+			}
+		}
+	}
+	// copy the new grid to the old grid
+	return newGrid
 }
 
 func run() {
@@ -87,8 +121,8 @@ func run() {
 
 	// VARS /////////////////////////////////////////////////////////////////////////////////////////////////
 	var (
-		camPos       = pixel.ZV
-		camSpeed     = 500.0
+		camPos = pixel.V(1300, 1300)
+		//camSpeed     = 500.0
 		camZoom      = 1.0
 		camZoomSpeed = 1.2
 		// trees        []*pixel.Sprite
@@ -101,14 +135,25 @@ func run() {
 	// INIT /////////////////////////////////////////////////////////////////////////////////////////////////
 	tileGrid = initGrid(tileGrid)
 
+	// iterate the cellular automata a few times
+	for x := 0; x < 4; x++ {
+		tileGrid = iterateGrid(tileGrid)
+	}
+
+	// init player
+	player := Player{
+		X:         1300,
+		Y:         1300,
+		walkSpeed: 200.0,
+		runSpeed:  400.0,
+	}
+
 	// GAME LOOP /////////////////////////////////////////////////////////////////////////////////////////////
 	for !win.Closed() {
 		dt := time.Since(last).Seconds()
 		last = time.Now()
 
-		cam := pixel.IM.Scaled(camPos, camZoom).Moved(pixel.ZV.Sub(camPos))
 		// .Moved(win.Bounds().Center().Sub(camPos))
-		win.SetMatrix(cam)
 
 		// if win.JustPressed(pixel.MouseButtonLeft) {
 		// 	tree := pixel.NewSprite(spritesheet, treesFrames[rand.Intn(len(treesFrames))])
@@ -116,21 +161,39 @@ func run() {
 		// 	mouse := cam.Unproject(win.MousePosition())
 		// 	matrices = append(matrices, pixel.IM.Scaled(pixel.ZV, 4).Moved(mouse))
 		// }
-		if win.Pressed(pixel.KeyLeft) {
-			camPos.X -= camSpeed * dt
-		}
-		if win.Pressed(pixel.KeyRight) {
-			camPos.X += camSpeed * dt
-		}
-		if win.Pressed(pixel.KeyDown) {
-			camPos.Y -= camSpeed * dt
-		}
-		if win.Pressed(pixel.KeyUp) {
-			camPos.Y += camSpeed * dt
-		}
-		camZoom *= math.Pow(camZoomSpeed, win.MouseScroll().Y)
 
-		win.Clear(colornames.Forestgreen)
+		// camera movements
+		// interpolate camera to follow player
+		// camPos = pixel.Lerp(camPos, pixel.V(player.X, player.Y), 1-math.Pow(1.0/128, dt))
+
+		camZoom *= math.Pow(camZoomSpeed, win.MouseScroll().Y)
+		// // cam := pixel.IM.Moved(camPos.Scaled(-1)).Moved(camPos.Sub(win.Bounds().Center()))
+		// cam := pixel.IM.Scaled(camPos, camZoom).Moved(pixel.ZV.Sub(camPos))
+
+		// lerp the camera position towards the gopher
+		camPos = pixel.Lerp(camPos, pixel.V(player.X, player.Y), 1-math.Pow(1.0/128, dt))
+		cam := pixel.IM.Scaled(camPos, camZoom).Moved(win.Bounds().Center().Sub(camPos))
+		win.SetMatrix(cam)
+
+		// player movements
+		currSpeed := player.walkSpeed
+		if win.Pressed(pixel.KeyLeftShift) {
+			currSpeed = player.runSpeed
+		}
+		if win.Pressed(pixel.KeyA) {
+			player.X -= currSpeed * dt
+		}
+		if win.Pressed(pixel.KeyD) {
+			player.X += currSpeed * dt
+		}
+		if win.Pressed(pixel.KeyS) {
+			player.Y -= currSpeed * dt
+		}
+		if win.Pressed(pixel.KeyW) {
+			player.Y += currSpeed * dt
+		}
+
+		win.Clear(pixel.RGB(0, 0, 0))
 		imd.Clear()
 
 		// for i, tree := range trees {
@@ -142,9 +205,9 @@ func run() {
 			for y := 0; y < gridHeight; y++ {
 				tile := tileGrid[x][y]
 				if tile.Type == TYPE_WALL {
-					imd.Color = pixel.RGB(0.1, 0.1, 0.1)
+					imd.Color = pixel.RGB(0.153, 0.160, 0.196)
 				} else {
-					imd.Color = pixel.RGB(0.1, 0.2, 0.1)
+					imd.Color = pixel.RGB(0.407, 0.54, 0.345)
 				}
 				// imd.Color = pixel.RGB(0, 0, 0)
 				// draw bottom left of tile
@@ -156,49 +219,18 @@ func run() {
 			}
 		}
 
+		// draw the player as a 1x2 red rectangle
+		imd.Color = pixel.RGB(0.8, 0.2, 0.2)
+		imd.Push(pixel.V(float64(player.X), float64(player.Y)))
+		imd.Push(pixel.V(float64(player.X+tileSize), float64(player.Y+(2*tileSize))))
+		imd.Rectangle(0)
+
 		imd.Draw(win)
 		win.Update()
 
 		if win.JustPressed(pixel.KeySpace) {
-			// do a round of cellular automata
-			// create a new grid to store the results
-			var newGrid [gridWidth][gridHeight]*Tile
-			for x := 0; x < gridWidth; x++ {
-				for y := 0; y < gridHeight; y++ {
-					newTile := Tile{
-						X:    x,
-						Y:    y,
-						Type: TYPE_FLOOR,
-					}
-					newGrid[x][y] = &newTile
-					// get neighbor nodes
-					wallCount := 0
-					floorCount := 0
-					for dx := -1; dx <= 1; dx++ {
-						for dy := -1; dy <= 1; dy++ {
-							// skip the center node
-							if dx == 0 && dy == 0 {
-								continue
-							}
-							// check bounds
-							if x+dx < 0 || x+dx >= gridWidth || y+dy < 0 || y+dy >= gridHeight {
-								continue
-							}
-							// check neighbor type
-							if tileGrid[x+dx][y+dy].Type == TYPE_WALL {
-								wallCount++
-							} else {
-								floorCount++
-							}
-						}
-					}
-					if wallCount >= 4 {
-						newTile.Type = TYPE_WALL
-					}
-				}
-			}
-			// copy the new grid to the old grid
-			tileGrid = newGrid
+			// iterate the grid
+			tileGrid = iterateGrid(tileGrid)
 		}
 		if win.JustPressed(pixel.KeyR) {
 			tileGrid = initGrid(tileGrid)
