@@ -140,7 +140,7 @@ func run() {
 	tileGrid = initGrid(tileGrid)
 
 	// iterate the cellular automata a few times
-	for x := 0; x < 4; x++ {
+	for x := 0; x < 7; x++ {
 		tileGrid = iterateGrid(tileGrid)
 	}
 
@@ -178,7 +178,7 @@ func run() {
 				float dist = distance(t, uLightPos);
 
 				// calculate the light intensity
-				float intensity = 0.5 / (1.0 + dist * dist);
+				float intensity = 0.5 / (1.0 + dist*2);
 
 				// get the color from the texture
 				vec4 color = texture(uTexture, t);
@@ -240,12 +240,11 @@ func run() {
 		canvas.Clear(pixel.RGB(0, 0, 0))
 		imd.Clear()
 
-		// convert player world coords to screen coords
-		// playerScreenPos := cam.Unproject(pixel.V(player.X, player.Y))
+		// currently, we have the player pos in game space. Need to convert to screen space
+		// to pass to the shader
+		playerScreenPos := cam.Project(pixel.V(player.X, player.Y))
 
-		// xcoord := float32(playerScreenPos.X)
-		// ycoord := float32(playerScreenPos.Y)
-		lightPos = mgl32.Vec2{0, 0}
+		lightPos = mgl32.Vec2{float32(playerScreenPos.X / 1200), float32(playerScreenPos.Y / 800)}
 
 		// for i, tree := range trees {
 		// 	tree.Draw(win, matrices[i])
