@@ -37,7 +37,7 @@ func run() {
 	// window config
 	cfg := opengl.WindowConfig{
 		Title:  "Pixel Rocks!",
-		Bounds: pixel.R(0, 0, 1024, 768),
+		Bounds: pixel.R(0, 0, 800, 800),
 		VSync:  true,
 	}
 	// create new window
@@ -62,9 +62,9 @@ func run() {
 
 	// CONSTS ///////////////////////////////////////////////////////////////////////////////////////////////
 	const (
-		gridWidth  = 10
-		gridHeight = 10
-		tileSize   = 32
+		gridWidth  = 100
+		gridHeight = 100
+		tileSize   = 8
 	)
 
 	// VARS /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -73,11 +73,11 @@ func run() {
 		camSpeed     = 500.0
 		camZoom      = 1.0
 		camZoomSpeed = 1.2
-		trees        []*pixel.Sprite
-		matrices     []pixel.Matrix
-		tileGrid     [gridWidth][gridHeight]*Tile
-		last         = time.Now()
-		imd          = imdraw.New(nil)
+		// trees        []*pixel.Sprite
+		// matrices     []pixel.Matrix
+		tileGrid [gridWidth][gridHeight]*Tile
+		last     = time.Now()
+		imd      = imdraw.New(nil)
 	)
 
 	// INIT /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -101,15 +101,16 @@ func run() {
 		dt := time.Since(last).Seconds()
 		last = time.Now()
 
-		cam := pixel.IM.Scaled(camPos, camZoom).Moved(win.Bounds().Center().Sub(camPos))
+		cam := pixel.IM.Scaled(camPos, camZoom).Moved(pixel.ZV.Sub(camPos))
+		// .Moved(win.Bounds().Center().Sub(camPos))
 		win.SetMatrix(cam)
 
-		if win.JustPressed(pixel.MouseButtonLeft) {
-			tree := pixel.NewSprite(spritesheet, treesFrames[rand.Intn(len(treesFrames))])
-			trees = append(trees, tree)
-			mouse := cam.Unproject(win.MousePosition())
-			matrices = append(matrices, pixel.IM.Scaled(pixel.ZV, 4).Moved(mouse))
-		}
+		// if win.JustPressed(pixel.MouseButtonLeft) {
+		// 	tree := pixel.NewSprite(spritesheet, treesFrames[rand.Intn(len(treesFrames))])
+		// 	trees = append(trees, tree)
+		// 	mouse := cam.Unproject(win.MousePosition())
+		// 	matrices = append(matrices, pixel.IM.Scaled(pixel.ZV, 4).Moved(mouse))
+		// }
 		if win.Pressed(pixel.KeyLeft) {
 			camPos.X -= camSpeed * dt
 		}
@@ -125,21 +126,25 @@ func run() {
 		camZoom *= math.Pow(camZoomSpeed, win.MouseScroll().Y)
 
 		win.Clear(colornames.Forestgreen)
+		imd.Clear()
 
-		for i, tree := range trees {
-			tree.Draw(win, matrices[i])
-		}
+		// for i, tree := range trees {
+		// 	tree.Draw(win, matrices[i])
+		// }
 
 		// draw the grid
 		for x := 0; x < gridWidth; x++ {
 			for y := 0; y < gridHeight; y++ {
-				imd.Color = pixel.RGB(0, 0, 0)
+				tile := tileGrid[x][y]
+				if tile.Type == Wall {
+					imd.Color = pixel.RGB(0.2, 0.2, 0.2)
+				} else {
+					imd.Color = pixel.RGB(0.1, 0.1, 0.1)
+				}
+				// imd.Color = pixel.RGB(0, 0, 0)
 				// draw bottom left of tile
 				imd.Push(pixel.V(float64(x*tileSize), float64(y*tileSize)))
-				// draw bottom right of tile
-				imd.Push(pixel.V(float64((x+1)*tileSize), float64(y*tileSize)))
-				// draw top left of tile
-				imd.Push(pixel.V(float64(x*tileSize), float64((y+1)*tileSize)))
+
 				// draw top right of tile
 				imd.Push(pixel.V(float64((x+1)*tileSize), float64((y+1)*tileSize)))
 				imd.Rectangle(0)
