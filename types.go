@@ -4,8 +4,8 @@ package main
 type TileType int
 
 const (
-	Wall TileType = iota
-	Floor
+	TYPE_WALL  = 0
+	TYPE_FLOOR = 1
 )
 
 type Tile struct {

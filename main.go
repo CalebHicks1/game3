@@ -3,7 +3,7 @@ package main
 import (
 	"image"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"time"
 
@@ -15,6 +15,13 @@ import (
 	"github.com/gopxl/pixel/v2/backends/opengl"
 	"github.com/gopxl/pixel/v2/ext/imdraw"
 	"golang.org/x/image/colornames"
+)
+
+// CONSTS ///////////////////////////////////////////////////////////////////////////////////////////////
+const (
+	gridWidth  = 300
+	gridHeight = 150
+	tileSize   = 32
 )
 
 func loadPicture(path string) (pixel.Picture, error) {
@@ -30,6 +37,24 @@ func loadPicture(path string) (pixel.Picture, error) {
 	return pixel.PictureDataFromImage(img), nil
 }
 
+func initGrid(grid [gridWidth][gridHeight]*Tile) [gridWidth][gridHeight]*Tile {
+	// build the grid, randomly assign floor and wall tiles
+	for x := 0; x < gridWidth; x++ {
+		for y := 0; y < gridHeight; y++ {
+			tile := Tile{
+				X:    x,
+				Y:    y,
+				Type: TYPE_FLOOR,
+			}
+			if rand.Float64() < 0.38 {
+				tile.Type = TYPE_WALL
+			}
+			grid[x][y] = &tile
+		}
+	}
+	return grid
+}
+
 func run() {
 
 	// SETUP ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -37,7 +62,7 @@ func run() {
 	// window config
 	cfg := opengl.WindowConfig{
 		Title:  "Pixel Rocks!",
-		Bounds: pixel.R(0, 0, 800, 800),
+		Bounds: pixel.R(0, 0, 1200, 800),
 		VSync:  true,
 	}
 	// create new window
@@ -60,13 +85,6 @@ func run() {
 		}
 	}
 
-	// CONSTS ///////////////////////////////////////////////////////////////////////////////////////////////
-	const (
-		gridWidth  = 100
-		gridHeight = 100
-		tileSize   = 8
-	)
-
 	// VARS /////////////////////////////////////////////////////////////////////////////////////////////////
 	var (
 		camPos       = pixel.ZV
@@ -81,20 +99,7 @@ func run() {
 	)
 
 	// INIT /////////////////////////////////////////////////////////////////////////////////////////////////
-	// build the grid, randomly assign floor and wall tiles
-	for x := 0; x < gridWidth; x++ {
-		for y := 0; y < gridHeight; y++ {
-			tile := Tile{
-				X:    x,
-				Y:    y,
-				Type: Floor,
-			}
-			if rand.Float64() < 0.3 {
-				tile.Type = Wall
-			}
-			tileGrid[x][y] = &tile
-		}
-	}
+	tileGrid = initGrid(tileGrid)
 
 	// GAME LOOP /////////////////////////////////////////////////////////////////////////////////////////////
 	for !win.Closed() {
@@ -136,10 +141,10 @@ func run() {
 		for x := 0; x < gridWidth; x++ {
 			for y := 0; y < gridHeight; y++ {
 				tile := tileGrid[x][y]
-				if tile.Type == Wall {
-					imd.Color = pixel.RGB(0.2, 0.2, 0.2)
-				} else {
+				if tile.Type == TYPE_WALL {
 					imd.Color = pixel.RGB(0.1, 0.1, 0.1)
+				} else {
+					imd.Color = pixel.RGB(0.1, 0.2, 0.1)
 				}
 				// imd.Color = pixel.RGB(0, 0, 0)
 				// draw bottom left of tile
@@ -153,6 +158,51 @@ func run() {
 
 		imd.Draw(win)
 		win.Update()
+
+		if win.JustPressed(pixel.KeySpace) {
+			// do a round of cellular automata
+			// create a new grid to store the results
+			var newGrid [gridWidth][gridHeight]*Tile
+			for x := 0; x < gridWidth; x++ {
+				for y := 0; y < gridHeight; y++ {
+					newTile := Tile{
+						X:    x,
+						Y:    y,
+						Type: TYPE_FLOOR,
+					}
+					newGrid[x][y] = &newTile
+					// get neighbor nodes
+					wallCount := 0
+					floorCount := 0
+					for dx := -1; dx <= 1; dx++ {
+						for dy := -1; dy <= 1; dy++ {
+							// skip the center node
+							if dx == 0 && dy == 0 {
+								continue
+							}
+							// check bounds
+							if x+dx < 0 || x+dx >= gridWidth || y+dy < 0 || y+dy >= gridHeight {
+								continue
+							}
+							// check neighbor type
+							if tileGrid[x+dx][y+dy].Type == TYPE_WALL {
+								wallCount++
+							} else {
+								floorCount++
+							}
+						}
+					}
+					if wallCount >= 4 {
+						newTile.Type = TYPE_WALL
+					}
+				}
+			}
+			// copy the new grid to the old grid
+			tileGrid = newGrid
+		}
+		if win.JustPressed(pixel.KeyR) {
+			tileGrid = initGrid(tileGrid)
+		}
 	}
 }
 
