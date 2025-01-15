@@ -99,10 +99,6 @@ func drawGrid(grid [gridWidth][gridHeight]*Tile, batch *pixel.Batch, spritesheet
 			if tile.Type == TYPE_WALL {
 
 				// determine which sprite to use
-				// 0,0 = bottom left
-				// 0,1 = top left
-				// 1,0 = bottom right
-				// 1,1 = top right
 				// get neighbor nodes
 				hasLeftNeighbor := false
 				hasRightNeighbor := false
@@ -130,6 +126,54 @@ func drawGrid(grid [gridWidth][gridHeight]*Tile, batch *pixel.Batch, spritesheet
 				if hasLeftNeighbor && hasRightNeighbor && !hasTopNeighbor && !hasBottomNeighbor {
 					// left right,  neighbors
 					frameNum = 2
+				}
+				if !hasLeftNeighbor && hasRightNeighbor && !hasTopNeighbor && hasBottomNeighbor {
+					// right bottom neighbors
+					frameNum = 1
+				}
+				if hasLeftNeighbor && !hasRightNeighbor && !hasTopNeighbor && hasBottomNeighbor {
+					// left bottom neighbors
+					frameNum = 5
+				}
+				if hasLeftNeighbor && hasRightNeighbor && !hasTopNeighbor && hasBottomNeighbor {
+					// left bottom right  neighbors
+					frameNum = 4
+				}
+				if hasLeftNeighbor && !hasRightNeighbor && hasTopNeighbor && hasBottomNeighbor {
+					// left bottom top  neighbors
+					frameNum = 6
+				}
+				if !hasLeftNeighbor && hasRightNeighbor && hasTopNeighbor && hasBottomNeighbor {
+					// left bottom top  neighbors
+					frameNum = 7
+				}
+				if hasLeftNeighbor && hasRightNeighbor && hasTopNeighbor && !hasBottomNeighbor {
+					// left bottom top  neighbors
+					frameNum = 8
+				}
+				if !hasLeftNeighbor && !hasRightNeighbor && !hasTopNeighbor && hasBottomNeighbor {
+					// bottom neighbors
+					frameNum = 9
+				}
+				if hasLeftNeighbor && !hasRightNeighbor && hasTopNeighbor && !hasBottomNeighbor {
+					// left top neighbors
+					frameNum = 10
+				}
+				if hasLeftNeighbor && !hasRightNeighbor && !hasTopNeighbor && !hasBottomNeighbor {
+					// left neighbors
+					frameNum = 11
+				}
+				if !hasLeftNeighbor && hasRightNeighbor && hasTopNeighbor && !hasBottomNeighbor {
+					// right top neighbors
+					frameNum = 12
+				}
+				if !hasLeftNeighbor && hasRightNeighbor && !hasTopNeighbor && !hasBottomNeighbor {
+					// right neighbors
+					frameNum = 13
+				}
+				if !hasLeftNeighbor && !hasRightNeighbor && hasTopNeighbor && !hasBottomNeighbor {
+					// top neighbors
+					frameNum = 15
 				}
 
 				wallSprite := pixel.NewSprite(spritesheet, spriteFrames[frameNum])
