@@ -90,6 +90,60 @@ func iterateGrid(grid [gridWidth][gridHeight]*Tile) [gridWidth][gridHeight]*Tile
 	return newGrid
 }
 
+func drawGrid(grid [gridWidth][gridHeight]*Tile, batch *pixel.Batch, spritesheet pixel.Picture, spriteFrames []pixel.Rect) {
+	// redraw the grid
+	batch.Clear()
+	for x := 0; x < gridWidth; x++ {
+		for y := 0; y < gridHeight; y++ {
+			tile := grid[x][y]
+			if tile.Type == TYPE_WALL {
+
+				// determine which sprite to use
+				// 0,0 = bottom left
+				// 0,1 = top left
+				// 1,0 = bottom right
+				// 1,1 = top right
+				// get neighbor nodes
+				hasLeftNeighbor := false
+				hasRightNeighbor := false
+				hasTopNeighbor := false
+				hasBottomNeighbor := false
+				if x > 0 && grid[x-1][y].Type == TYPE_WALL {
+					hasLeftNeighbor = true
+				}
+				if x < gridWidth-1 && grid[x+1][y].Type == TYPE_WALL {
+					hasRightNeighbor = true
+				}
+				if y > 0 && grid[x][y-1].Type == TYPE_WALL {
+					hasBottomNeighbor = true
+				}
+				if y < gridHeight-1 && grid[x][y+1].Type == TYPE_WALL {
+					hasTopNeighbor = true
+				}
+
+				frameNum := 0
+				// determine which sprite to use
+				if hasLeftNeighbor && hasRightNeighbor && hasTopNeighbor && hasBottomNeighbor {
+					// all neighbors
+					frameNum = 3
+				}
+				if hasLeftNeighbor && hasRightNeighbor && !hasTopNeighbor && !hasBottomNeighbor {
+					// left right,  neighbors
+					frameNum = 2
+				}
+
+				wallSprite := pixel.NewSprite(spritesheet, spriteFrames[frameNum])
+				wallSprite.Draw(batch, pixel.IM.Moved(pixel.V(float64(x*tileSize), float64(y*tileSize))))
+			}
+			// imd.Color = pixel.RGB(0, 0, 0)
+			// draw bottom left of tile
+
+			// // draw top right of tile
+			// imd.Rectangle(0)
+		}
+	}
+}
+
 func run() {
 
 	// SETUP ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -144,23 +198,7 @@ func run() {
 	for x := 0; x < 7; x++ {
 		tileGrid = iterateGrid(tileGrid)
 	}
-	// redraw the grid
-	wallBatch.Clear()
-	for x := 0; x < gridWidth; x++ {
-		for y := 0; y < gridHeight; y++ {
-			tile := tileGrid[x][y]
-			if tile.Type == TYPE_WALL {
-				// imd.Color = pixel.RGB(0.153, 0.160, 0.196)
-				wallSprite := pixel.NewSprite(spritesheet, wallFrames[0])
-				wallSprite.Draw(wallBatch, pixel.IM.Moved(pixel.V(float64(x*tileSize), float64(y*tileSize))))
-			}
-			// imd.Color = pixel.RGB(0, 0, 0)
-			// draw bottom left of tile
-
-			// // draw top right of tile
-			// imd.Rectangle(0)
-		}
-	}
+	drawGrid(tileGrid, wallBatch, spritesheet, wallFrames)
 
 	// init player
 	player := Player{
@@ -282,45 +320,20 @@ func run() {
 			tileGrid = iterateGrid(tileGrid)
 			// redraw the grid
 			wallBatch.Clear()
-			for x := 0; x < gridWidth; x++ {
-				for y := 0; y < gridHeight; y++ {
-					tile := tileGrid[x][y]
-					if tile.Type == TYPE_WALL {
-						// imd.Color = pixel.RGB(0.153, 0.160, 0.196)
-						wallSprite := pixel.NewSprite(spritesheet, wallFrames[0])
-						wallSprite.Draw(wallBatch, pixel.IM.Moved(pixel.V(float64(x*tileSize), float64(y*tileSize))))
-					}
-					// imd.Color = pixel.RGB(0, 0, 0)
-					// draw bottom left of tile
+			drawGrid(tileGrid, wallBatch, spritesheet, wallFrames)
 
-					// // draw top right of tile
-					// imd.Rectangle(0)
-				}
-			}
 		}
 		if win.JustPressed(pixel.KeyR) {
 			tileGrid = initGrid(tileGrid)
 			// redraw the grid
 			wallBatch.Clear()
-			for x := 0; x < gridWidth; x++ {
-				for y := 0; y < gridHeight; y++ {
-					tile := tileGrid[x][y]
-					if tile.Type == TYPE_WALL {
-						// imd.Color = pixel.RGB(0.153, 0.160, 0.196)
-						wallSprite := pixel.NewSprite(spritesheet, wallFrames[0])
-						wallSprite.Draw(wallBatch, pixel.IM.Moved(pixel.V(float64(x*tileSize), float64(y*tileSize))))
-					}
-					// imd.Color = pixel.RGB(0, 0, 0)
-					// draw bottom left of tile
-
-					// // draw top right of tile
-					// imd.Rectangle(0)
-				}
-			}
+			drawGrid(tileGrid, wallBatch, spritesheet, wallFrames)
 		}
-
-		imd.Draw(canvas)
+		// draw the grid to the canvas
 		wallBatch.Draw(canvas)
+		// draw the player to the caanvas
+		imd.Draw(canvas)
+		// create a texture from the canvas and draw it to the window
 		sprite := pixel.NewSprite(canvas, canvas.Bounds())
 		sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 
