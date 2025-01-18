@@ -387,7 +387,7 @@ func run() {
 		lightSprite.Draw(lightCanvas, pixel.IM.Scaled(pixel.ZV, 2).Moved(pixel.V(mousePos.X, mousePos.Y)))
 		lightCanvas.SetComposeMethod(pixel.ComposeIn)
 		canvas.Draw(lightCanvas, pixel.IM.Moved(lightCanvas.Bounds().Center()))
-		lightCanvas.SetColorMask(pixel.RGB(0.8, 0.5, 0.5))
+		lightCanvas.SetColorMask(pixel.RGB(0.7, 0.7, 1))
 
 		// shadowCanvas should be everything outside the light
 		shadowCanvas.Clear(pixel.Alpha(0))
@@ -395,7 +395,7 @@ func run() {
 		lightSprite.Draw(shadowCanvas, pixel.IM.Scaled(pixel.ZV, 2).Moved(pixel.V(mousePos.X, mousePos.Y)))
 		shadowCanvas.SetComposeMethod(pixel.ComposeOut)
 		canvas.Draw(shadowCanvas, pixel.IM.Moved(shadowCanvas.Bounds().Center()))
-		shadowCanvas.SetColorMask(pixel.RGB(0.5, 0.5, 0.8))
+		shadowCanvas.SetColorMask(pixel.RGB(0.2, 0.2, 0.5))
 
 		// draw the light and shadow canvases to the window
 		win.Clear(pixel.RGB(0, 1, 0))
