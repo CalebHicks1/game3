@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"math"
 	"math/rand/v2"
 	"os"
+	"sort"
 	"time"
 
 	_ "image/png"
@@ -180,9 +182,9 @@ func drawGrid(grid [gridWidth][gridHeight]*Tile, batch *pixel.Batch, spritesheet
 					frameNum = 14
 				}
 
-				// sprites are anchored at the center, so move them to the bottom left of the tile
+				// sprites are anchored at the center, so move them up and to the right by half the tile size
 				wallSprite := pixel.NewSprite(spritesheet, spriteFrames[frameNum])
-				wallSprite.Draw(batch, pixel.IM.Moved(pixel.V(float64((x*tileSize)-(tileSize/2)), float64((y*tileSize)-(tileSize/2)))))
+				wallSprite.Draw(batch, pixel.IM.Moved(pixel.V(float64((x*tileSize)+(tileSize/2)), float64((y*tileSize)+(tileSize/2)))))
 			}
 			// imd.Color = pixel.RGB(0, 0, 0)
 			// draw bottom left of tile
@@ -203,6 +205,48 @@ func drawGrid(grid [gridWidth][gridHeight]*Tile, batch *pixel.Batch, spritesheet
 // 		}
 // 	}
 // }
+
+// Check if two lines (p1-p2 and p3-p4) intersect
+func linesIntersect(p1, p2, p3, p4 pixel.Vec) (bool, pixel.Vec) {
+	denom := (p4.Y-p3.Y)*(p2.X-p1.X) - (p4.X-p3.X)*(p2.Y-p1.Y)
+	if denom == 0 {
+		return false, pixel.Vec{} // Lines are parallel
+	}
+	ua := ((p4.X-p3.X)*(p1.Y-p3.Y) - (p4.Y-p3.Y)*(p1.X-p3.X)) / denom
+	ub := ((p2.X-p1.X)*(p1.Y-p3.Y) - (p2.Y-p1.Y)*(p1.X-p3.X)) / denom
+	if ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1 {
+		intersection := pixel.Vec{
+			X: p1.X + ua*(p2.X-p1.X),
+			Y: p1.Y + ua*(p2.Y-p1.Y),
+		}
+		return true, intersection
+	}
+	return false, pixel.Vec{}
+}
+
+// Check if a line intersects a rectangle and return the intersection point
+func lineIntersectsRect(p1, p2 pixel.Vec, rect pixel.Rect) (bool, pixel.Vec) {
+	topLeft := pixel.V(rect.Min.X, rect.Max.Y)
+	topRight := pixel.V(rect.Max.X, rect.Max.Y)
+	bottomLeft := pixel.V(rect.Min.X, rect.Min.Y)
+	bottomRight := pixel.V(rect.Max.X, rect.Min.Y)
+
+	// Check if the line intersects any of the rectangle's sides
+	if intersect, point := linesIntersect(p1, p2, topLeft, topRight); intersect && p2 != topLeft && p2 != topRight {
+		return true, point
+	}
+	if intersect, point := linesIntersect(p1, p2, topRight, bottomRight); intersect && p2 != topRight && p2 != bottomRight {
+		return true, point
+	}
+	if intersect, point := linesIntersect(p1, p2, bottomRight, bottomLeft); intersect && p2 != bottomRight && p2 != bottomLeft {
+		return true, point
+	}
+	if intersect, point := linesIntersect(p1, p2, bottomLeft, topLeft); intersect && p2 != bottomLeft && p2 != topLeft {
+		return true, point
+	}
+
+	return false, pixel.Vec{}
+}
 
 func run() {
 
@@ -473,8 +517,10 @@ func run() {
 
 		// only iterate over nearby tiles
 		tile_range := 10
-		//var corner_points []int
+		var corners []Corner
+		cornerMap := make(map[string]bool)
 
+		// add corners to the array, in ascending order of distance from mouseTileX, mouseTileY
 		imd.Color = pixel.RGB(0, 0, 1)
 		for x := mouseTileX - tile_range; x <= mouseTileX+tile_range; x++ {
 			for y := mouseTileY - tile_range; y <= mouseTileY+tile_range; y++ {
@@ -482,30 +528,85 @@ func run() {
 				if x < 0 || x >= gridWidth || y < 0 || y >= gridHeight {
 					continue
 				}
-				// get the corners of the tile
-				// top left
-				topLeft := pixel.V(float64(x*tileSize), float64(y*tileSize))
-				imd.Push(topLeft)
-				imd.Circle(2, 0)
-				// top right
-				topRight := pixel.V(float64((x+1)*tileSize), float64(y*tileSize))
-				imd.Push(topRight)
-				imd.Circle(2, 0)
-				// bottom left
-				bottomLeft := pixel.V(float64(x*tileSize), float64((y+1)*tileSize))
-				imd.Push(bottomLeft)
-				imd.Circle(2, 0)
-				// bottom right
-				bottomRight := pixel.V(float64((x+1)*tileSize), float64((y+1)*tileSize))
-				imd.Push(bottomRight)
-				imd.Circle(2, 0)
+				tile := tileGrid[x][y]
+				if tile.Type == TYPE_FLOOR {
+					continue
+				}
+				for cx := 0; cx < 2; cx++ {
+					for cy := 0; cy < 2; cy++ {
+						corner := Corner{X: float64((x + cx) * tileSize), Y: float64((y + cy) * tileSize)}
+						coords := pixel.V(corner.X, corner.Y)
+						imd.Push(coords)
+						imd.Circle(2, 0)
+
+						// check if the corner is in the map
+						cKey := fmt.Sprintf("%f,%f", corner.X, corner.Y)
+						if !cornerMap[cKey] {
+							cornerMap[cKey] = true
+							corners = append(corners, corner)
+						}
+					}
+				}
 			}
 		}
+
+		// want unique points in the array
+
+		// sort corners by distance from mouse
+		sort.Slice(corners, func(i, j int) bool {
+			return math.Sqrt(math.Pow(mousePos.X-corners[i].X, 2)+math.Pow(mousePos.Y-corners[i].Y, 2)) < math.Sqrt(math.Pow(mousePos.X-corners[j].X, 2)+math.Pow(mousePos.Y-corners[j].Y, 2))
+		})
+
+		// make closest corners green
+		for i, c := range corners {
+			imd.Color = pixel.RGB(0, 1, 0)
+			if i > 100 {
+				break
+			}
+			drawLine := true
+			// check every tile for intersections
+			for x := mouseTileX - tile_range; x <= mouseTileX+tile_range; x++ {
+				for y := mouseTileY - tile_range; y <= mouseTileY+tile_range; y++ {
+					// check bounds
+					if x < 0 || x >= gridWidth || y < 0 || y >= gridHeight {
+						continue
+					}
+					tile := tileGrid[x][y]
+					if tile.Type == TYPE_FLOOR {
+						continue
+					}
+					// check if the line intersects the tile
+					// top left
+					intersects, _ := lineIntersectsRect(mousePos, pixel.V(c.X, c.Y), pixel.R(float64(x*tileSize), float64(y*tileSize), float64((x+1)*tileSize), float64((y+1)*tileSize)))
+					if intersects {
+						imd.Color = pixel.RGB(1, 0, 0)
+						drawLine = false
+						break
+					}
+				}
+				if !drawLine {
+					break
+				}
+			}
+			if drawLine {
+				imd.Push(pixel.V(mousePos.X, mousePos.Y))
+				imd.Push(pixel.V(float64(c.X), float64(c.Y)))
+				imd.Line(2)
+			}
+
+		}
+
+		// remove any corners that are occluded by walls
+		// for every line from mouse to corner, check if it intersects a wall
+		// if it does, remove the corner
+		// for every line:
+		// for every wall:
+		// check if they intersect
 
 		imd.Draw(debugCanvas)
 		// win.SetComposeMethod()
 		// create a texture from the canvas and draw it to the window
-
+		win.SetComposeMethod(pixel.ComposeOver)
 		debugCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 
 		win.Update()

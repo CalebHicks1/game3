@@ -21,6 +21,10 @@ type Tile struct {
 	Type TileType
 }
 
+type Corner struct {
+	X, Y float64
+}
+
 type Player struct {
 	// X and Y are the coordinates of the player in the map.
 	X, Y      float64
