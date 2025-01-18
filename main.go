@@ -467,9 +467,6 @@ func run() {
 			win.SetComposeMethod(pixel.ComposeIn)
 		}
 
-		sprite := pixel.NewSprite(canvas, canvas.Bounds())
-		sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
-
 		// debug grid
 		// imd.Color = pixel.RGB(1, 0, 0)
 		// if firstLoop {
@@ -557,9 +554,11 @@ func run() {
 			return math.Sqrt(math.Pow(mousePos.X-corners[i].X, 2)+math.Pow(mousePos.Y-corners[i].Y, 2)) < math.Sqrt(math.Pow(mousePos.X-corners[j].X, 2)+math.Pow(mousePos.Y-corners[j].Y, 2))
 		})
 
+		var goodCorners []Corner
+		imd.Clear()
 		// make closest corners green
 		for i, c := range corners {
-			imd.Color = pixel.RGB(0, 1, 0)
+			imd.Color = pixel.RGB(1, 1, 1)
 			if i > 100 {
 				break
 			}
@@ -589,25 +588,44 @@ func run() {
 				}
 			}
 			if drawLine {
-				imd.Push(pixel.V(mousePos.X, mousePos.Y))
-				imd.Push(pixel.V(float64(c.X), float64(c.Y)))
-				imd.Line(2)
+				// imd.Push(pixel.V(mousePos.X, mousePos.Y))
+				// imd.Push(pixel.V(float64(c.X), float64(c.Y)))
+				goodCorners = append(goodCorners, c)
+				// imd.Line(2)
 			}
 
 		}
 
+		// sort goodCorners by angle
+		sort.Slice(goodCorners, func(i, j int) bool {
+			angle1 := math.Atan2(goodCorners[i].Y-mousePos.Y, goodCorners[i].X-mousePos.X)
+			angle2 := math.Atan2(goodCorners[j].Y-mousePos.Y, goodCorners[j].X-mousePos.X)
+			return angle1 < angle2
+		})
+		for _, c := range goodCorners {
+			// imd.Color = pixel.RGB(0, 1, 0)
+			imd.Push(pixel.V(float64(c.X), float64(c.Y)))
+		}
+
+		imd.Polygon(0)
 		// remove any corners that are occluded by walls
 		// for every line from mouse to corner, check if it intersects a wall
 		// if it does, remove the corner
 		// for every line:
 		// for every wall:
 		// check if they intersect
+		imd.Draw(shadowCanvas)
+		shadowSprite := pixel.NewSprite(shadowCanvas, canvas.Bounds())
+		shadowSprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 
-		imd.Draw(debugCanvas)
+		win.SetComposeMethod(pixel.ComposeIn)
+		sprite := pixel.NewSprite(canvas, canvas.Bounds())
+		sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
+
 		// win.SetComposeMethod()
 		// create a texture from the canvas and draw it to the window
-		win.SetComposeMethod(pixel.ComposeOver)
-		debugCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
+		// win.SetComposeMethod(pixel.ComposeOver)
+		// debugCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 
 		win.Update()
 	}
