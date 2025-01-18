@@ -210,6 +210,7 @@ func run() {
 
 	// draw the player as a 1x2 red rectangle
 	canvas := opengl.NewCanvas(pixel.R(0, 0, 1200, 800))
+	shadowCanvas := opengl.NewCanvas(pixel.R(0, 0, 1200, 800))
 
 	// load tree spritesheet
 	spritesheet, err := loadPicture("sprites/wall.png")
@@ -296,15 +297,8 @@ func run() {
 				// get the color from the texture
 				vec4 color = texture(uTexture, t);
 
-				// apply the light intensity
-				// vec3 lightColor = vec3(1, 0, 0);
-				// vec3 lightEffect = intensity * lightColor;
-				// color.rgb = mix(ambientColor, color.rgb * lightEffect, intensity); // Modify this line
 				
-				// color.rgb *= vec3(0.1,0.1,0.1);
-				//color.rgb*=intensity+0.4;
-				
-				vec3 spotLightColor = vec3(1, 0.688, 0);
+				vec3 spotLightColor = vec3(1, 0, 0);
 				vec3 ambientColor = vec3(0.23, 0.23, 0.38);
 				color.rgb = (color.rgb * ambientColor) + (color.rgb * intensity * spotLightColor);
 				fragColor = color;
@@ -339,6 +333,7 @@ func run() {
 		camPos = pixel.Lerp(camPos, pixel.V(player.X, player.Y), 1-math.Pow(1.0/128, dt))
 		cam := pixel.IM.Scaled(camPos, camZoom).Moved(win.Bounds().Center().Sub(camPos))
 		canvas.SetMatrix(cam)
+		shadowCanvas.SetMatrix(cam)
 
 		// player movements
 		currSpeed := player.walkSpeed
@@ -358,28 +353,6 @@ func run() {
 			player.Y += currSpeed * dt
 		}
 
-		win.Clear(pixel.RGB(0, 0, 0))
-		canvas.Clear(pixel.RGB(0.154, 0.139, 0.152))
-		imd.Clear()
-
-		// currently, we have the player pos in game space. Need to convert to screen space
-		// to pass to the shader
-		// TODO: create function to translate from game to screen coords
-		playerScreenPos := cam.Project(pixel.V(1300, 1300))
-
-		lightPos = mgl32.Vec2{float32(playerScreenPos.X / 1200), float32(playerScreenPos.Y / 800)}
-
-		// for i, tree := range trees {
-		// 	tree.Draw(win, matrices[i])
-		// }
-
-		// draw the grid
-
-		imd.Color = pixel.RGB(0.8, 0.2, 0.2)
-		imd.Push(pixel.V(float64(player.X), float64(player.Y)))
-		imd.Push(pixel.V(float64(player.X+tileSize), float64(player.Y+(2*tileSize))))
-		imd.Rectangle(0)
-
 		if win.JustPressed(pixel.KeySpace) {
 			// iterate the grid
 			tileGrid = iterateGrid(tileGrid)
@@ -394,13 +367,49 @@ func run() {
 			wallBatch.Clear()
 			drawGrid(tileGrid, wallBatch, spritesheet, wallFrames)
 		}
+
+		// clear all the canvases
+		win.Clear(pixel.RGB(0, 0, 0))
+		canvas.Clear(pixel.RGB(0.154, 0.139, 0.152))
+		shadowCanvas.Clear(pixel.Alpha(0.5))
+		imd.Clear()
+
 		// draw the grid to the canvas
 		wallBatch.Draw(canvas)
-		// draw the player to the caanvas
+
+		// draw the player to the canvas
+		imd.Color = pixel.RGB(1, 1, 1)
+		imd.Push(pixel.V(float64(player.X), float64(player.Y)))
+		imd.Push(pixel.V(float64(player.X+tileSize), float64(player.Y+(2*tileSize))))
+		imd.Rectangle(0)
 		imd.Draw(canvas)
+
 		// create a texture from the canvas and draw it to the window
+
+		mousePos := cam.Unproject(win.MousePosition())
+		// currently, we have the player pos in game space. Need to convert to screen space
+		// to pass to the shader
+		// TODO: create function to translate from game to screen coords
+		playerScreenPos := cam.Project(pixel.V(mousePos.X, mousePos.Y))
+
+		lightPos = mgl32.Vec2{float32(playerScreenPos.X / 1200), float32(playerScreenPos.Y / 800)}
+
+		imd.Clear()
+		imd.Color = pixel.RGB(1, 1, 1)
+		imd.Push(pixel.V(mousePos.X-100, mousePos.Y-100))
+		imd.Push(pixel.V(float64(mousePos.X+100), float64(mousePos.Y+100)))
+		imd.Rectangle(0)
+		imd.Draw(shadowCanvas)
+		shadowSprite := pixel.NewSprite(shadowCanvas, canvas.Bounds())
+		shadowSprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
+
+		win.SetComposeMethod(pixel.ComposeIn)
+
 		sprite := pixel.NewSprite(canvas, canvas.Bounds())
 		sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
+
+		// win.SetComposeMethod()
+		// create a texture from the canvas and draw it to the window
 
 		win.Update()
 	}
