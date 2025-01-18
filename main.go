@@ -275,6 +275,10 @@ func run() {
 			uniform vec4 uTexBounds;
 			uniform sampler2D uTexture;
 			uniform vec2 uLightPos;
+			// Function to generate a small random noise value
+			float rand(vec2 co){
+				return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+			}
 
 			void main() {
 				// Get our current screen coordinate
@@ -284,14 +288,25 @@ func run() {
 				float dist = distance(t, uLightPos);
 
 				// calculate the light intensity
-				float intensity = 1 / (1.0 + 3*dist);
+				float intensity = 1 / (1.0 + dist*5);
+
+				// add a small amount of noise to the intensity
+				intensity += rand(t) * 0.03;
 
 				// get the color from the texture
 				vec4 color = texture(uTexture, t);
 
 				// apply the light intensity
-				color *= intensity;
-
+				// vec3 lightColor = vec3(1, 0, 0);
+				// vec3 lightEffect = intensity * lightColor;
+				// color.rgb = mix(ambientColor, color.rgb * lightEffect, intensity); // Modify this line
+				
+				// color.rgb *= vec3(0.1,0.1,0.1);
+				//color.rgb*=intensity+0.4;
+				
+				vec3 spotLightColor = vec3(1, 0.688, 0);
+				vec3 ambientColor = vec3(0.23, 0.23, 0.38);
+				color.rgb = (color.rgb * ambientColor) + (color.rgb * intensity * spotLightColor);
 				fragColor = color;
 			}
 		`
@@ -350,7 +365,7 @@ func run() {
 		// currently, we have the player pos in game space. Need to convert to screen space
 		// to pass to the shader
 		// TODO: create function to translate from game to screen coords
-		playerScreenPos := cam.Project(pixel.V(player.X, player.Y))
+		playerScreenPos := cam.Project(pixel.V(1300, 1300))
 
 		lightPos = mgl32.Vec2{float32(playerScreenPos.X / 1200), float32(playerScreenPos.Y / 800)}
 
