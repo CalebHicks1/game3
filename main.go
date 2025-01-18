@@ -97,6 +97,27 @@ func drawLights(lightPos []pixel.Vec, batch *pixel.Batch, picture pixel.Picture)
 	}
 }
 
+func drawPlantsToBatch(grid [gridWidth][gridHeight]*Tile, batch *pixel.Batch, picture pixel.Picture, spriteFrames []pixel.Rect) {
+	// create a sprite for the light gradient
+
+	for x := 0; x < gridWidth; x++ {
+		for y := 0; y < gridHeight; y++ {
+			tile := grid[x][y]
+			if tile.Type == TYPE_FLOOR {
+				if rand.Float64() < 0.7 {
+					plantSprite := pixel.NewSprite(picture, spriteFrames[rand.IntN(len(spriteFrames))])
+					// randomize the position of the plant within the tile
+					// get a random int betweeon 0 and 31
+					offsetX := rand.IntN(31)
+					offsetY := rand.IntN(31)
+					plantPos := pixel.V(float64((x*tileSize)+offsetX), float64((y*tileSize)+offsetY))
+					plantSprite.Draw(batch, pixel.IM.Scaled(pixel.ZV, 1).Moved(plantPos))
+				}
+			}
+		}
+	}
+}
+
 func drawGrid(grid [gridWidth][gridHeight]*Tile, batch *pixel.Batch, spritesheet pixel.Picture, spriteFrames []pixel.Rect) {
 	// redraw the grid
 	batch.Clear()
@@ -219,21 +240,31 @@ func run() {
 	canvas := opengl.NewCanvas(pixel.R(0, 0, 1200, 800))
 	lightCanvas := opengl.NewCanvas(pixel.R(0, 0, 1200, 800))
 	shadowCanvas := opengl.NewCanvas(pixel.R(0, 0, 1200, 800))
-	// load tree spritesheet
-	spritesheet, err := loadPicture("sprites/wall.png")
+	// SPRITES
+	spritesheet, err := loadPicture("sprites/wall2.png")
 	if err != nil {
 		panic(err)
+	}
+	// create sprite frames from spritesheet
+	var wallFrames []pixel.Rect
+	for x := spritesheet.Bounds().Min.X; x < spritesheet.Bounds().Max.X; x += 32 {
+		for y := spritesheet.Bounds().Min.Y; y < spritesheet.Bounds().Max.Y; y += 32 {
+			wallFrames = append(wallFrames, pixel.R(x, y, x+32, y+32))
+		}
 	}
 	lightPicture, err := loadPicture("sprites/light.png")
 	if err != nil {
 		panic(err)
 	}
+	plantSpriteSheet, err := loadPicture("sprites/plant.png")
+	if err != nil {
+		panic(err)
+	}
 
-	// create tree frames from spritesheet
-	var wallFrames []pixel.Rect
-	for x := spritesheet.Bounds().Min.X; x < spritesheet.Bounds().Max.X; x += 32 {
-		for y := spritesheet.Bounds().Min.Y; y < spritesheet.Bounds().Max.Y; y += 32 {
-			wallFrames = append(wallFrames, pixel.R(x, y, x+32, y+32))
+	var plantFrames []pixel.Rect
+	for x := plantSpriteSheet.Bounds().Min.X; x < plantSpriteSheet.Bounds().Max.X; x += 32 {
+		for y := plantSpriteSheet.Bounds().Min.Y; y < plantSpriteSheet.Bounds().Max.Y; y += 32 {
+			plantFrames = append(wallFrames, pixel.R(x, y, x+32, y+32))
 		}
 	}
 
@@ -250,6 +281,7 @@ func run() {
 		imd        = imdraw.New(nil)
 		wallBatch  = pixel.NewBatch(&pixel.TrianglesData{}, spritesheet)
 		lightBatch = pixel.NewBatch(&pixel.TrianglesData{}, lightPicture)
+		plantBatch = pixel.NewBatch(&pixel.TrianglesData{}, plantSpriteSheet)
 	)
 
 	// INIT /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -260,7 +292,7 @@ func run() {
 		tileGrid = iterateGrid(tileGrid)
 	}
 	drawGrid(tileGrid, wallBatch, spritesheet, wallFrames)
-
+	drawPlantsToBatch(tileGrid, plantBatch, plantSpriteSheet, plantFrames)
 	// init player
 	player := Player{
 		X:         1300,
@@ -268,32 +300,6 @@ func run() {
 		walkSpeed: 200.0,
 		runSpeed:  400.0,
 	}
-
-	// Load and compile the fragment shader
-	// var lightFrag = `
-	// 	#version 330 core
-	// 	out vec4 fragColor;
-	// 	in vec2  vTexCoords;
-	// 	uniform vec4 uTexBounds;
-	// 	uniform sampler2D uTexture;
-
-	// 	//uniform float time;
-
-	// 	float rand(vec2 co){
-	// 		return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
-	// 	}
-
-	// 	void main()
-	// 	{
-	// 		vec2 uv = (vTexCoords - uTexBounds.xy) / uTexBounds.zw;
-	// 		vec3 color = texture(uTexture, uv).rgb;
-	// 		float noise = rand(uv + 0.1) * 0.01; // replace 1 with time
-	// 		color += noise;
-	// 		fragColor = vec4(color, 1.0);
-	// 	}
-	// `
-
-	// Apply the fragment shader to the canvas
 
 	// GAME LOOP /////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -354,6 +360,9 @@ func run() {
 			// redraw the grid
 			wallBatch.Clear()
 			drawGrid(tileGrid, wallBatch, spritesheet, wallFrames)
+			// draw the plants
+			plantBatch.Clear()
+			drawPlantsToBatch(tileGrid, plantBatch, plantSpriteSheet, plantFrames)
 
 		}
 		if win.JustPressed(pixel.KeyR) {
@@ -361,6 +370,9 @@ func run() {
 			// redraw the grid
 			wallBatch.Clear()
 			drawGrid(tileGrid, wallBatch, spritesheet, wallFrames)
+			// draw the plants
+			plantBatch.Clear()
+			drawPlantsToBatch(tileGrid, plantBatch, plantSpriteSheet, plantFrames)
 		}
 
 		canvas.Clear(pixel.RGB(1, 1, 1))
@@ -368,12 +380,13 @@ func run() {
 		// create a background rectangle
 		imd.Color = pixel.RGB(0.154, 0.139, 0.152)
 		imd.Push(pixel.V(0, 0))
-		imd.Push(pixel.V(1200*tileSize, 800*tileSize))
+		imd.Push(pixel.V(gridWidth*tileSize, gridHeight*tileSize))
 		imd.Rectangle(0)
 		imd.Draw(canvas)
 		imd.Clear()
 		// draw the grid to the canvas
 		wallBatch.Draw(canvas)
+		plantBatch.Draw(canvas)
 		// draw the player to the canvas
 		imd.Color = pixel.RGB(1, 1, 1)
 		imd.Push(pixel.V(float64(player.X), float64(player.Y)))
@@ -388,22 +401,20 @@ func run() {
 		// shadowCanvas is everything in ambient light
 		shadowCanvas.Clear(pixel.Alpha(0))
 		shadowCanvas.SetComposeMethod(pixel.ComposeOver)
-		// lightSprite.Draw(shadowCanvas, pixel.IM.Scaled(pixel.ZV, 2).Moved(pixel.V(mousePos.X, mousePos.Y)))
-		// shadowCanvas.SetComposeMethod(pixel.ComposeIn)
 		canvas.Draw(shadowCanvas, pixel.IM.Moved(shadowCanvas.Bounds().Center()))
 		shadowCanvas.SetColorMask(pixel.RGB(0.3, 0.4, 0.6))
 
 		// lightCanvas is everything inside a light
 		lightCanvas.Clear(pixel.Alpha(0))
 		lightCanvas.SetComposeMethod(pixel.ComposeOver)
-		// create a sprite for the light gradient
-		// lightPic, err := loadPicture("sprites/light.png")
-		// if err != nil {
-		// 	panic(err)
-		// }
+
 		lightBatch.Clear()
 
-		var lights = []pixel.Vec{pixel.V(mousePos.X, mousePos.Y), cam.Project(pixel.V(player.X+(tileSize/2), player.Y+tileSize))}
+		var lights = []pixel.Vec{
+			pixel.V(mousePos.X, mousePos.Y),
+			cam.Project(pixel.V(player.X+(tileSize/2), player.Y+tileSize)),
+			cam.Project(pixel.V(1300, 1300)),
+		}
 		drawLights(lights, lightBatch, lightPicture)
 		lightBatch.Draw(lightCanvas)
 		lightCanvas.SetComposeMethod(pixel.ComposeIn)
