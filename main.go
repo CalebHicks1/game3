@@ -11,7 +11,6 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/go-gl/mathgl/mgl32"
 	"github.com/gopxl/pixel/v2"
 	"github.com/gopxl/pixel/v2/backends/opengl"
 	"github.com/gopxl/pixel/v2/ext/imdraw"
@@ -210,7 +209,7 @@ func run() {
 
 	// draw the player as a 1x2 red rectangle
 	canvas := opengl.NewCanvas(pixel.R(0, 0, 1200, 800))
-
+	lightCanvas := opengl.NewCanvas(pixel.R(0, 0, 1200, 800))
 	// load tree spritesheet
 	spritesheet, err := loadPicture("sprites/wall.png")
 	if err != nil {
@@ -260,44 +259,64 @@ func run() {
 	// create uniform with light position
 	// need to convert the player world coords to screen coords
 
-	lightPos := mgl32.Vec2{0, 0}
-	// aspectRatio := float32(win.Bounds().W() / win.Bounds().H())
-	win.Canvas().SetUniform("uLightPos", &lightPos)
-	// win.Canvas().SetUniform("uAspectRatio", &aspectRatio)
+	// lightPos := mgl32.Vec2{0, 0}
+	// win.Canvas().SetUniform("uLightPos", &lightPos)
+	// pass the lightCanvas texture (used by lightSprite) to the fragment shader
+	// var lightTexture *glhf.Texture
+	// canvas.SetUniform("uLightTexture", lightTexture)
 
-	var fragmentShader = `
-			#version 330 core
+	// 	var fragmentShader = `
+	// 	#version 330 core
 
-			in vec2  vTexCoords;
+	// 	in vec2  vTexCoords;
+	// 	out vec4 fragColor;
 
-			out vec4 fragColor;
+	// 	uniform vec4 uTexBounds;
+	// 	uniform sampler2D uTexture;
+	// 	uniform sampler2D uLightTexture;
 
-			uniform vec4 uTexBounds;
-			uniform sampler2D uTexture;
-			uniform vec2 uLightPos;
+	// 	void main() {
+	// 		vec2 t = (vTexCoords - uTexBounds.xy) / uTexBounds.zw;
+	// 		vec4 color = texture(uTexture, t);
+	// 		vec4 light = texture(uLightTexture, t);
+	// 		fragColor = color * light;
+	// 	}
+	// `
 
-			void main() {
-				// Get our current screen coordinate
-				vec2 t = (vTexCoords - uTexBounds.xy) / uTexBounds.zw;
+	// var fragmentShader = `
+	// 		#version 330 core
 
-				// calculate the distance from the light
-				float dist = distance(t, uLightPos);
+	// 		in vec2  vTexCoords;
 
-				// calculate the light intensity
-				float intensity = 1 / (1.0 + 3*dist);
+	// 		out vec4 fragColor;
 
-				// get the color from the texture
-				vec4 color = texture(uTexture, t);
+	// 		uniform vec4 uTexBounds;
+	// 		uniform sampler2D uTexture;
+	// 		uniform sampler2D uTexture;
+	// 		uniform vec2 uLightPos;
 
-				// apply the light intensity
-				color *= intensity;
+	// 		void main() {
+	// 			// Get our current screen coordinate
+	// 			vec2 t = (vTexCoords - uTexBounds.xy) / uTexBounds.zw;
 
-				fragColor = color;
-			}
-		`
+	// 			// calculate the distance from the light
+	// 			float dist = distance(t, uLightPos);
+
+	// 			// calculate the light intensity with faster falloff
+	// 			float intensity = 1 / (1.0 + 2*dist);
+
+	// 			// get the color from the texture
+	// 			vec4 color = texture(uTexture, t);
+
+	// 			// apply the light intensity
+	// 			// color *= intensity;
+
+	// 			fragColor = color;
+	// 		}
+	// 	`
 
 	// GAME LOOP /////////////////////////////////////////////////////////////////////////////////////////////
-	win.Canvas().SetFragmentShader(fragmentShader)
+	// win.Canvas().SetFragmentShader(fragmentShader)
 
 	for !win.Closed() {
 		dt := time.Since(last).Seconds()
@@ -324,6 +343,7 @@ func run() {
 		camPos = pixel.Lerp(camPos, pixel.V(player.X, player.Y), 1-math.Pow(1.0/128, dt))
 		cam := pixel.IM.Scaled(camPos, camZoom).Moved(win.Bounds().Center().Sub(camPos))
 		canvas.SetMatrix(cam)
+		lightCanvas.SetMatrix(cam)
 
 		// player movements
 		currSpeed := player.walkSpeed
@@ -345,25 +365,21 @@ func run() {
 
 		win.Clear(pixel.RGB(0, 0, 0))
 		canvas.Clear(pixel.RGB(0.154, 0.139, 0.152))
+		lightCanvas.Clear(pixel.Alpha(0.2))
 		imd.Clear()
 
 		// currently, we have the player pos in game space. Need to convert to screen space
 		// to pass to the shader
 		// TODO: create function to translate from game to screen coords
-		playerScreenPos := cam.Project(pixel.V(player.X, player.Y))
+		// playerScreenPos := cam.Project(pixel.V(1300, 1300))
 
-		lightPos = mgl32.Vec2{float32(playerScreenPos.X / 1200), float32(playerScreenPos.Y / 800)}
+		// lightPos = mgl32.Vec2{float32(playerScreenPos.X / 1200), float32(playerScreenPos.Y / 800)}
 
 		// for i, tree := range trees {
 		// 	tree.Draw(win, matrices[i])
 		// }
 
 		// draw the grid
-
-		imd.Color = pixel.RGB(0.8, 0.2, 0.2)
-		imd.Push(pixel.V(float64(player.X), float64(player.Y)))
-		imd.Push(pixel.V(float64(player.X+tileSize), float64(player.Y+(2*tileSize))))
-		imd.Rectangle(0)
 
 		if win.JustPressed(pixel.KeySpace) {
 			// iterate the grid
@@ -381,12 +397,42 @@ func run() {
 		}
 		// draw the grid to the canvas
 		wallBatch.Draw(canvas)
-		// draw the player to the caanvas
+
+		// draw the player to the canvas
+		imd.Color = pixel.RGB(0.8, 0.2, 0.2)
+		imd.Push(pixel.V(float64(player.X), float64(player.Y)))
+		imd.Push(pixel.V(float64(player.X+tileSize), float64(player.Y+(2*tileSize))))
+		imd.Rectangle(0)
 		imd.Draw(canvas)
 		// create a texture from the canvas and draw it to the window
 		sprite := pixel.NewSprite(canvas, canvas.Bounds())
-		sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 
+		// draw lights
+		// imd.Clear()
+		// imd.Color = pixel.RGB(0, 1, 1)
+		// imd.Push(pixel.V(float64(1300), float64(1300)))
+		// // imd.Push(pixel.V(float64(1350), float64(1350)))
+		// imd.Circle(50, 0)
+		// imd.Draw(lightCanvas)
+		lightPic, err := loadPicture("sprites/light.png")
+		if err != nil {
+			panic(err)
+		}
+		lightSprite := pixel.NewSprite(lightPic, lightPic.Bounds())
+
+		// lightSprite := pixel.NewSprite(lightCanvas, lightCanvas.Bounds())
+		// lightSprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
+
+		//lightTexture = lightCanvas.Texture().
+		// win.SetColorMask(pixel.Alpha(1))
+
+		lightSprite.Draw(lightCanvas, pixel.IM.Moved(pixel.V(float64(1300), float64(1300))))
+
+		win.SetComposeMethod(pixel.ComposeIn)
+		// win.SetColorMask(pixel.RGB(1, 0, 0))
+
+		lightCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
+		sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 		win.Update()
 	}
 }
