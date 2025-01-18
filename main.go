@@ -175,6 +175,10 @@ func drawGrid(grid [gridWidth][gridHeight]*Tile, batch *pixel.Batch, spritesheet
 					// top neighbors
 					frameNum = 15
 				}
+				if !hasLeftNeighbor && !hasRightNeighbor && hasTopNeighbor && hasBottomNeighbor {
+					// top neighbors
+					frameNum = 14
+				}
 
 				wallSprite := pixel.NewSprite(spritesheet, spriteFrames[frameNum])
 				wallSprite.Draw(batch, pixel.IM.Moved(pixel.V(float64(x*tileSize), float64(y*tileSize))))
@@ -257,7 +261,9 @@ func run() {
 	// need to convert the player world coords to screen coords
 
 	lightPos := mgl32.Vec2{0, 0}
+	// aspectRatio := float32(win.Bounds().W() / win.Bounds().H())
 	win.Canvas().SetUniform("uLightPos", &lightPos)
+	// win.Canvas().SetUniform("uAspectRatio", &aspectRatio)
 
 	var fragmentShader = `
 			#version 330 core
@@ -338,7 +344,7 @@ func run() {
 		}
 
 		win.Clear(pixel.RGB(0, 0, 0))
-		canvas.Clear(pixel.RGB(0, 0, 0))
+		canvas.Clear(pixel.RGB(0.154, 0.139, 0.152))
 		imd.Clear()
 
 		// currently, we have the player pos in game space. Need to convert to screen space
