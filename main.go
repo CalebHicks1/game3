@@ -89,6 +89,14 @@ func iterateGrid(grid [gridWidth][gridHeight]*Tile) [gridWidth][gridHeight]*Tile
 	return newGrid
 }
 
+func drawLights(lightPos []pixel.Vec, batch *pixel.Batch, picture pixel.Picture) {
+	// create a sprite for the light gradient
+	lightSprite := pixel.NewSprite(picture, picture.Bounds())
+	for _, lightPos := range lightPos {
+		lightSprite.Draw(batch, pixel.IM.Scaled(pixel.ZV, 1).Moved(lightPos))
+	}
+}
+
 func drawGrid(grid [gridWidth][gridHeight]*Tile, batch *pixel.Batch, spritesheet pixel.Picture, spriteFrames []pixel.Rect) {
 	// redraw the grid
 	batch.Clear()
@@ -216,6 +224,10 @@ func run() {
 	if err != nil {
 		panic(err)
 	}
+	lightPicture, err := loadPicture("sprites/light.png")
+	if err != nil {
+		panic(err)
+	}
 
 	// create tree frames from spritesheet
 	var wallFrames []pixel.Rect
@@ -233,10 +245,11 @@ func run() {
 		camZoomSpeed = 1.2
 		// trees        []*pixel.Sprite
 		// matrices     []pixel.Matrix
-		tileGrid  [gridWidth][gridHeight]*Tile
-		last      = time.Now()
-		imd       = imdraw.New(nil)
-		wallBatch = pixel.NewBatch(&pixel.TrianglesData{}, spritesheet)
+		tileGrid   [gridWidth][gridHeight]*Tile
+		last       = time.Now()
+		imd        = imdraw.New(nil)
+		wallBatch  = pixel.NewBatch(&pixel.TrianglesData{}, spritesheet)
+		lightBatch = pixel.NewBatch(&pixel.TrianglesData{}, lightPicture)
 	)
 
 	// INIT /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -368,13 +381,6 @@ func run() {
 		imd.Rectangle(0)
 		imd.Draw(canvas)
 
-		// create a sprite for the light gradient
-		lightPic, err := loadPicture("sprites/light.png")
-		if err != nil {
-			panic(err)
-		}
-		lightSprite := pixel.NewSprite(lightPic, lightPic.Bounds())
-
 		mousePos := win.MousePosition()
 
 		// draw the light and shadow canvases
@@ -390,8 +396,16 @@ func run() {
 		// lightCanvas is everything inside a light
 		lightCanvas.Clear(pixel.Alpha(0))
 		lightCanvas.SetComposeMethod(pixel.ComposeOver)
-		lightSprite.Draw(lightCanvas, pixel.IM.Scaled(pixel.ZV, 1).Moved(pixel.V(mousePos.X, mousePos.Y)))
-		lightSprite.DrawColorMask(lightCanvas, pixel.IM.Scaled(pixel.ZV, 0.5).Moved(cam.Project(pixel.V(player.X+(tileSize/2), player.Y+tileSize))), pixel.RGB(1, 0, 0))
+		// create a sprite for the light gradient
+		// lightPic, err := loadPicture("sprites/light.png")
+		// if err != nil {
+		// 	panic(err)
+		// }
+		lightBatch.Clear()
+
+		var lights = []pixel.Vec{pixel.V(mousePos.X, mousePos.Y), cam.Project(pixel.V(player.X+(tileSize/2), player.Y+tileSize))}
+		drawLights(lights, lightBatch, lightPicture)
+		lightBatch.Draw(lightCanvas)
 		lightCanvas.SetComposeMethod(pixel.ComposeIn)
 		canvas.Draw(lightCanvas, pixel.IM.Moved(lightCanvas.Bounds().Center()))
 
