@@ -256,6 +256,32 @@ func run() {
 		runSpeed:  400.0,
 	}
 
+	// Load and compile the fragment shader
+	// var lightFrag = `
+	// 	#version 330 core
+	// 	out vec4 fragColor;
+	// 	in vec2  vTexCoords;
+	// 	uniform vec4 uTexBounds;
+	// 	uniform sampler2D uTexture;
+
+	// 	//uniform float time;
+
+	// 	float rand(vec2 co){
+	// 		return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+	// 	}
+
+	// 	void main()
+	// 	{
+	// 		vec2 uv = (vTexCoords - uTexBounds.xy) / uTexBounds.zw;
+	// 		vec3 color = texture(uTexture, uv).rgb;
+	// 		float noise = rand(uv + 0.1) * 0.01; // replace 1 with time
+	// 		color += noise;
+	// 		fragColor = vec4(color, 1.0);
+	// 	}
+	// `
+
+	// Apply the fragment shader to the canvas
+
 	// GAME LOOP /////////////////////////////////////////////////////////////////////////////////////////////
 
 	for !win.Closed() {
@@ -324,34 +350,6 @@ func run() {
 			drawGrid(tileGrid, wallBatch, spritesheet, wallFrames)
 		}
 
-		// draw the grid to the canvas
-		//wallBatch.Draw(canvas)
-
-		// draw lights
-		// imd.Clear()
-		// imd.Color = pixel.RGB(0, 1, 1)
-		// imd.Push(pixel.V(float64(1300), float64(1300)))
-		// // imd.Push(pixel.V(float64(1350), float64(1350)))
-		// imd.Circle(50, 0)
-		// imd.Draw(lightCanvas)
-
-		// lightSprite := pixel.NewSprite(lightCanvas, lightCanvas.Bounds())
-		// lightSprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
-
-		//lightTexture = lightCanvas.Texture().
-		// win.SetColorMask(pixel.Alpha(1))
-
-		// lightCanvas.SetColorMask(pixel.RGB(1, 1, 1))
-		// lightCanvas.SetColorMask(pixel.Alpha(1))
-		// win.SetColorMask(pixel.RGB(1, 0, 0))
-
-		// 1 draw everything inside the light
-		// 2 draw everything outside the light
-
-		// win.SetColorMask(pixel.RGB(1, 0, 0))
-		//sprite.Draw(lightCanvas, pixel.IM.Moved(win.Bounds().Center()))
-		//canvas.SetColorMask(pixel.RGB(1, 1, 1))
-
 		canvas.Clear(pixel.RGB(1, 1, 1))
 		// draw the world to the canvas
 		// create a background rectangle
@@ -381,31 +379,33 @@ func run() {
 
 		// draw the light and shadow canvases
 
-		// lightcanvas is everything in ambient light
-		lightCanvas.Clear(pixel.Alpha(0))
-		lightCanvas.SetComposeMethod(pixel.ComposeOver)
-		// lightSprite.Draw(lightCanvas, pixel.IM.Scaled(pixel.ZV, 2).Moved(pixel.V(mousePos.X, mousePos.Y)))
-		// lightCanvas.SetComposeMethod(pixel.ComposeIn)
-		canvas.Draw(lightCanvas, pixel.IM.Moved(lightCanvas.Bounds().Center()))
-		lightCanvas.SetColorMask(pixel.RGB(0.2, 0.2, 0.5))
-
-		// shadowCanvas should be everything outside the light
+		// shadowCanvas is everything in ambient light
 		shadowCanvas.Clear(pixel.Alpha(0))
 		shadowCanvas.SetComposeMethod(pixel.ComposeOver)
-		lightSprite.Draw(shadowCanvas, pixel.IM.Scaled(pixel.ZV, 1).Moved(pixel.V(mousePos.X, mousePos.Y)))
-		shadowCanvas.SetComposeMethod(pixel.ComposeIn)
+		// lightSprite.Draw(shadowCanvas, pixel.IM.Scaled(pixel.ZV, 2).Moved(pixel.V(mousePos.X, mousePos.Y)))
+		// shadowCanvas.SetComposeMethod(pixel.ComposeIn)
 		canvas.Draw(shadowCanvas, pixel.IM.Moved(shadowCanvas.Bounds().Center()))
+		shadowCanvas.SetColorMask(pixel.RGB(0.3, 0.4, 0.6))
 
-		shadowCanvas.SetColorMask(pixel.RGB(1, 0.6, 0.6))
+		// lightCanvas is everything inside a light
+		lightCanvas.Clear(pixel.Alpha(0))
+		lightCanvas.SetComposeMethod(pixel.ComposeOver)
+		lightSprite.Draw(lightCanvas, pixel.IM.Scaled(pixel.ZV, 1).Moved(pixel.V(mousePos.X, mousePos.Y)))
+		lightSprite.DrawColorMask(lightCanvas, pixel.IM.Scaled(pixel.ZV, 0.5).Moved(cam.Project(pixel.V(player.X+(tileSize/2), player.Y+tileSize))), pixel.RGB(1, 0, 0))
+		lightCanvas.SetComposeMethod(pixel.ComposeIn)
+		canvas.Draw(lightCanvas, pixel.IM.Moved(lightCanvas.Bounds().Center()))
 
+		lightCanvas.SetColorMask(pixel.RGB(1, 0.8, 0.8))
 		// draw the light and shadow canvases to the window
 		win.Clear(pixel.RGB(0, 0, 0))
 		win.SetComposeMethod(pixel.ComposeOver)
 		// draw the canvas again so that the background color doesn't bleed through
 		// canvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
-		lightCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
-		win.SetComposeMethod(pixel.ComposeOver)
 		shadowCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
+		win.SetComposeMethod(pixel.ComposeOver)
+		lightCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
+
+		// win.Canvas().SetFragmentShader(lightFrag)
 
 		win.Update()
 	}
