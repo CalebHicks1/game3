@@ -352,7 +352,7 @@ func run() {
 		//sprite.Draw(lightCanvas, pixel.IM.Moved(win.Bounds().Center()))
 		//canvas.SetColorMask(pixel.RGB(1, 1, 1))
 
-		canvas.Clear(pixel.Alpha(0))
+		canvas.Clear(pixel.RGB(1, 1, 1))
 		// draw the world to the canvas
 		// create a background rectangle
 		imd.Color = pixel.RGB(0.154, 0.139, 0.152)
@@ -399,8 +399,10 @@ func run() {
 
 		// draw the light and shadow canvases to the window
 		win.Clear(pixel.RGB(0, 1, 0))
-		win.SetComposeMethod(pixel.ComposeAtop)
-		// lightCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
+		win.SetComposeMethod(pixel.ComposeOver)
+		// draw the canvas again so that the background color doesn't bleed through
+		canvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
+		lightCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 		shadowCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 
 		win.Update()
