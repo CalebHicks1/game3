@@ -180,8 +180,9 @@ func drawGrid(grid [gridWidth][gridHeight]*Tile, batch *pixel.Batch, spritesheet
 					frameNum = 14
 				}
 
+				// sprites are anchored at the center, so move them to the bottom left of the tile
 				wallSprite := pixel.NewSprite(spritesheet, spriteFrames[frameNum])
-				wallSprite.Draw(batch, pixel.IM.Moved(pixel.V(float64(x*tileSize), float64(y*tileSize))))
+				wallSprite.Draw(batch, pixel.IM.Moved(pixel.V(float64((x*tileSize)-(tileSize/2)), float64((y*tileSize)-(tileSize/2)))))
 			}
 			// imd.Color = pixel.RGB(0, 0, 0)
 			// draw bottom left of tile
@@ -191,6 +192,17 @@ func drawGrid(grid [gridWidth][gridHeight]*Tile, batch *pixel.Batch, spritesheet
 		}
 	}
 }
+
+// func drawToCanvas(canvas *opengl.Canvas, grid [gridWidth][gridHeight]*Tile, imd *imdraw.IMDraw) {
+// 	imd.Clear()
+// 	for x := 0; x < gridWidth; x++ {
+// 		for y := 0; y < gridHeight; y++ {
+// 			tile := grid[x][y]
+// 			imd.Push(pixel.V(float64(tile.X*tileSize), float64(tile.Y*tileSize)))
+// 			imd.Circle(2, 0)
+// 		}
+// 	}
+// }
 
 func run() {
 
@@ -211,6 +223,7 @@ func run() {
 	// draw the player as a 1x2 red rectangle
 	canvas := opengl.NewCanvas(pixel.R(0, 0, 1200, 800))
 	shadowCanvas := opengl.NewCanvas(pixel.R(0, 0, 1200, 800))
+	debugCanvas := opengl.NewCanvas(pixel.R(0, 0, 1200, 800))
 
 	// load tree spritesheet
 	spritesheet, err := loadPicture("sprites/wall.png")
@@ -234,10 +247,11 @@ func run() {
 		camZoomSpeed = 1.2
 		// trees        []*pixel.Sprite
 		// matrices     []pixel.Matrix
-		tileGrid  [gridWidth][gridHeight]*Tile
-		last      = time.Now()
-		imd       = imdraw.New(nil)
-		wallBatch = pixel.NewBatch(&pixel.TrianglesData{}, spritesheet)
+		tileGrid     [gridWidth][gridHeight]*Tile
+		last         = time.Now()
+		imd          = imdraw.New(nil)
+		wallBatch    = pixel.NewBatch(&pixel.TrianglesData{}, spritesheet)
+		enableLights = false
 	)
 
 	// INIT /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -308,6 +322,7 @@ func run() {
 	// GAME LOOP /////////////////////////////////////////////////////////////////////////////////////////////
 	win.Canvas().SetFragmentShader(fragmentShader)
 
+	// firstLoop := true
 	for !win.Closed() {
 		dt := time.Since(last).Seconds()
 		last = time.Now()
@@ -334,6 +349,7 @@ func run() {
 		cam := pixel.IM.Scaled(camPos, camZoom).Moved(win.Bounds().Center().Sub(camPos))
 		canvas.SetMatrix(cam)
 		shadowCanvas.SetMatrix(cam)
+		debugCanvas.SetMatrix(cam)
 
 		// player movements
 		currSpeed := player.walkSpeed
@@ -372,6 +388,7 @@ func run() {
 		win.Clear(pixel.RGB(0, 0, 0))
 		canvas.Clear(pixel.RGB(0.154, 0.139, 0.152))
 		shadowCanvas.Clear(pixel.Alpha(0.5))
+		debugCanvas.Clear(pixel.Alpha(0))
 		imd.Clear()
 
 		// draw the grid to the canvas
@@ -393,23 +410,103 @@ func run() {
 		playerScreenPos := cam.Project(pixel.V(mousePos.X, mousePos.Y))
 
 		lightPos = mgl32.Vec2{float32(playerScreenPos.X / 1200), float32(playerScreenPos.Y / 800)}
+		if enableLights {
+			imd.Clear()
+			imd.Color = pixel.RGB(1, 1, 1)
+			imd.Push(pixel.V(mousePos.X-100, mousePos.Y-100))
+			imd.Push(pixel.V(float64(mousePos.X+100), float64(mousePos.Y+100)))
+			imd.Rectangle(0)
+			imd.Draw(shadowCanvas)
+			shadowSprite := pixel.NewSprite(shadowCanvas, canvas.Bounds())
+			shadowSprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 
-		imd.Clear()
-		imd.Color = pixel.RGB(1, 1, 1)
-		imd.Push(pixel.V(mousePos.X-100, mousePos.Y-100))
-		imd.Push(pixel.V(float64(mousePos.X+100), float64(mousePos.Y+100)))
-		imd.Rectangle(0)
-		imd.Draw(shadowCanvas)
-		shadowSprite := pixel.NewSprite(shadowCanvas, canvas.Bounds())
-		shadowSprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
-
-		win.SetComposeMethod(pixel.ComposeIn)
+			win.SetComposeMethod(pixel.ComposeIn)
+		}
 
 		sprite := pixel.NewSprite(canvas, canvas.Bounds())
 		sprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 
+		// debug grid
+		// imd.Color = pixel.RGB(1, 0, 0)
+		// if firstLoop {
+		// 	imd.Clear()
+		// 	for x := 0; x < gridWidth; x++ {
+		// 		for y := 0; y < gridHeight; y++ {
+		// 			tile := tileGrid[x][y]
+		// 			imd.Push(pixel.V(float64(tile.X*tileSize), float64(tile.Y*tileSize)))
+		// 			imd.Circle(2, 0)
+		// 		}
+		// 	}
+		// 	imd.Draw(debugCanvas)
+		// 	firstLoop = false
+		// }
+
+		// calculate shadows with a tile based method
+		// draw rays out to the corners of the nearest tiles.
+		// 1. calculate corners of tiles nearby.
+		// 2. draw rays to each corner, continue until we hit a wall.
+		// 3. fill in the polygon with a light color.
+
+		// step 1: calculate corners of tiles nearby
+		// get the tile the mouse is on
+		imd.Color = pixel.RGB(1, 0, 0)
+		mouseTileX := int(mousePos.X / tileSize)
+		mouseTileY := int(mousePos.Y / tileSize)
+		// get the corners of the tile
+		// top left
+		topLeft := pixel.V(float64(mouseTileX*tileSize), float64(mouseTileY*tileSize))
+		imd.Clear()
+		imd.Push(topLeft)
+		imd.Circle(2, 0)
+		// top right
+		topRight := pixel.V(float64((mouseTileX+1)*tileSize), float64(mouseTileY*tileSize))
+		imd.Push(topRight)
+		imd.Circle(2, 0)
+		// bottom left
+		bottomLeft := pixel.V(float64(mouseTileX*tileSize), float64((mouseTileY+1)*tileSize))
+		imd.Push(bottomLeft)
+		imd.Circle(2, 0)
+		// bottom right
+		bottomRight := pixel.V(float64((mouseTileX+1)*tileSize), float64((mouseTileY+1)*tileSize))
+		imd.Push(bottomRight)
+		imd.Circle(2, 0)
+
+		// only iterate over nearby tiles
+		tile_range := 10
+		//var corner_points []int
+
+		imd.Color = pixel.RGB(0, 0, 1)
+		for x := mouseTileX - tile_range; x <= mouseTileX+tile_range; x++ {
+			for y := mouseTileY - tile_range; y <= mouseTileY+tile_range; y++ {
+				// check bounds
+				if x < 0 || x >= gridWidth || y < 0 || y >= gridHeight {
+					continue
+				}
+				// get the corners of the tile
+				// top left
+				topLeft := pixel.V(float64(x*tileSize), float64(y*tileSize))
+				imd.Push(topLeft)
+				imd.Circle(2, 0)
+				// top right
+				topRight := pixel.V(float64((x+1)*tileSize), float64(y*tileSize))
+				imd.Push(topRight)
+				imd.Circle(2, 0)
+				// bottom left
+				bottomLeft := pixel.V(float64(x*tileSize), float64((y+1)*tileSize))
+				imd.Push(bottomLeft)
+				imd.Circle(2, 0)
+				// bottom right
+				bottomRight := pixel.V(float64((x+1)*tileSize), float64((y+1)*tileSize))
+				imd.Push(bottomRight)
+				imd.Circle(2, 0)
+			}
+		}
+
+		imd.Draw(debugCanvas)
 		// win.SetComposeMethod()
 		// create a texture from the canvas and draw it to the window
+
+		debugCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 
 		win.Update()
 	}
