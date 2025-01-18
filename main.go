@@ -364,7 +364,7 @@ func run() {
 		// draw the grid to the canvas
 		wallBatch.Draw(canvas)
 		// draw the player to the canvas
-		imd.Color = pixel.RGB(0.8, 0.2, 0.2)
+		imd.Color = pixel.RGB(1, 1, 1)
 		imd.Push(pixel.V(float64(player.X), float64(player.Y)))
 		imd.Push(pixel.V(float64(player.X+tileSize), float64(player.Y+(2*tileSize))))
 		imd.Rectangle(0)
@@ -381,28 +381,30 @@ func run() {
 
 		// draw the light and shadow canvases
 
-		// lightCanvas should be everything inside the light
+		// lightcanvas is everything in ambient light
 		lightCanvas.Clear(pixel.Alpha(0))
 		lightCanvas.SetComposeMethod(pixel.ComposeOver)
-		lightSprite.Draw(lightCanvas, pixel.IM.Scaled(pixel.ZV, 2).Moved(pixel.V(mousePos.X, mousePos.Y)))
-		lightCanvas.SetComposeMethod(pixel.ComposeIn)
+		// lightSprite.Draw(lightCanvas, pixel.IM.Scaled(pixel.ZV, 2).Moved(pixel.V(mousePos.X, mousePos.Y)))
+		// lightCanvas.SetComposeMethod(pixel.ComposeIn)
 		canvas.Draw(lightCanvas, pixel.IM.Moved(lightCanvas.Bounds().Center()))
-		lightCanvas.SetColorMask(pixel.RGB(0.7, 0.7, 1))
+		lightCanvas.SetColorMask(pixel.RGB(0.2, 0.2, 0.5))
 
 		// shadowCanvas should be everything outside the light
 		shadowCanvas.Clear(pixel.Alpha(0))
 		shadowCanvas.SetComposeMethod(pixel.ComposeOver)
-		lightSprite.Draw(shadowCanvas, pixel.IM.Scaled(pixel.ZV, 2).Moved(pixel.V(mousePos.X, mousePos.Y)))
-		shadowCanvas.SetComposeMethod(pixel.ComposeOut)
+		lightSprite.Draw(shadowCanvas, pixel.IM.Scaled(pixel.ZV, 1).Moved(pixel.V(mousePos.X, mousePos.Y)))
+		shadowCanvas.SetComposeMethod(pixel.ComposeIn)
 		canvas.Draw(shadowCanvas, pixel.IM.Moved(shadowCanvas.Bounds().Center()))
-		shadowCanvas.SetColorMask(pixel.RGB(0.2, 0.2, 0.5))
+
+		shadowCanvas.SetColorMask(pixel.RGB(1, 0.6, 0.6))
 
 		// draw the light and shadow canvases to the window
-		win.Clear(pixel.RGB(0, 1, 0))
+		win.Clear(pixel.RGB(0, 0, 0))
 		win.SetComposeMethod(pixel.ComposeOver)
 		// draw the canvas again so that the background color doesn't bleed through
-		canvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
+		// canvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 		lightCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
+		win.SetComposeMethod(pixel.ComposeOver)
 		shadowCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 
 		win.Update()
