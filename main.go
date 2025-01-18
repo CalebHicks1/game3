@@ -324,11 +324,6 @@ func run() {
 			drawGrid(tileGrid, wallBatch, spritesheet, wallFrames)
 		}
 
-		win.Clear(pixel.RGB(0, 1, 0))
-		canvas.Clear(pixel.RGB(0.154, 0.139, 0.152))
-		lightCanvas.Clear(pixel.Alpha(0))
-		shadowCanvas.Clear(pixel.Alpha(0))
-
 		// draw the grid to the canvas
 		//wallBatch.Draw(canvas)
 
@@ -339,23 +334,14 @@ func run() {
 		// // imd.Push(pixel.V(float64(1350), float64(1350)))
 		// imd.Circle(50, 0)
 		// imd.Draw(lightCanvas)
-		lightPic, err := loadPicture("sprites/light.png")
-		if err != nil {
-			panic(err)
-		}
-		lightSprite := pixel.NewSprite(lightPic, lightPic.Bounds())
 
 		// lightSprite := pixel.NewSprite(lightCanvas, lightCanvas.Bounds())
 		// lightSprite.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 
 		//lightTexture = lightCanvas.Texture().
 		// win.SetColorMask(pixel.Alpha(1))
-		mousePos := win.MousePosition()
-		lightCanvas.SetComposeMethod(pixel.ComposeOver)
-		lightSprite.Draw(lightCanvas, pixel.IM.Scaled(pixel.ZV, 2).Moved(pixel.V(mousePos.X, mousePos.Y)))
 
 		// lightCanvas.SetColorMask(pixel.RGB(1, 1, 1))
-		lightCanvas.SetComposeMethod(pixel.ComposeIn)
 		// lightCanvas.SetColorMask(pixel.Alpha(1))
 		// win.SetColorMask(pixel.RGB(1, 0, 0))
 
@@ -365,6 +351,9 @@ func run() {
 		// win.SetColorMask(pixel.RGB(1, 0, 0))
 		//sprite.Draw(lightCanvas, pixel.IM.Moved(win.Bounds().Center()))
 		//canvas.SetColorMask(pixel.RGB(1, 1, 1))
+
+		canvas.Clear(pixel.Alpha(0))
+		// draw the world to the canvas
 		// create a background rectangle
 		imd.Color = pixel.RGB(0.154, 0.139, 0.152)
 		imd.Push(pixel.V(0, 0))
@@ -372,6 +361,7 @@ func run() {
 		imd.Rectangle(0)
 		imd.Draw(canvas)
 		imd.Clear()
+		// draw the grid to the canvas
 		wallBatch.Draw(canvas)
 		// draw the player to the canvas
 		imd.Color = pixel.RGB(0.8, 0.2, 0.2)
@@ -380,34 +370,39 @@ func run() {
 		imd.Rectangle(0)
 		imd.Draw(canvas)
 
-		//canvas.Draw(lightCanvas, pixel.IM.Moved(lightCanvas.Bounds().Center()))
-		// create a texture from the canvas and draw it to the window
-		// sprite := pixel.NewSprite(canvas, canvas.Bounds())
-		// win.SetComposeMethod(pixel.ComposeOver)
+		// create a sprite for the light gradient
+		lightPic, err := loadPicture("sprites/light.png")
+		if err != nil {
+			panic(err)
+		}
+		lightSprite := pixel.NewSprite(lightPic, lightPic.Bounds())
 
-		// draw the game canvas to the lightCanvas
-		win.SetComposeMethod(pixel.ComposeOver)
+		mousePos := win.MousePosition()
+
+		// draw the light and shadow canvases
+
+		// lightCanvas should be everything inside the light
+		lightCanvas.Clear(pixel.Alpha(0))
+		lightCanvas.SetComposeMethod(pixel.ComposeOver)
+		lightSprite.Draw(lightCanvas, pixel.IM.Scaled(pixel.ZV, 2).Moved(pixel.V(mousePos.X, mousePos.Y)))
+		lightCanvas.SetComposeMethod(pixel.ComposeIn)
 		canvas.Draw(lightCanvas, pixel.IM.Moved(lightCanvas.Bounds().Center()))
 		lightCanvas.SetColorMask(pixel.RGB(0.8, 0.5, 0.5))
-		lightCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
-		// win.SetComposeMethod(pixel.ComposePlus)
 
+		// shadowCanvas should be everything outside the light
+		shadowCanvas.Clear(pixel.Alpha(0))
 		shadowCanvas.SetComposeMethod(pixel.ComposeOver)
 		lightSprite.Draw(shadowCanvas, pixel.IM.Scaled(pixel.ZV, 2).Moved(pixel.V(mousePos.X, mousePos.Y)))
 		shadowCanvas.SetComposeMethod(pixel.ComposeOut)
 		canvas.Draw(shadowCanvas, pixel.IM.Moved(shadowCanvas.Bounds().Center()))
 		shadowCanvas.SetColorMask(pixel.RGB(0.5, 0.5, 0.8))
+
+		// draw the light and shadow canvases to the window
+		win.Clear(pixel.RGB(0, 1, 0))
+		win.SetComposeMethod(pixel.ComposeAtop)
+		// lightCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 		shadowCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 
-		// win.SetColorMask(pixel.Alpha(1))
-		// create another texture that contains everything outside the light
-
-		// lightSprite.Draw(shadowCanvas, pixel.IM.Scaled(pixel.ZV, 2).Moved(pixel.V(mousePos.X, mousePos.Y)))
-		// shadowCanvas.SetComposeMethod(pixel.ComposeOut)
-		// sprite.Draw(shadowCanvas, pixel.IM.Moved(win.Bounds().Center()))
-		// save the sprite as an image in the filesystem:
-
-		// shadowCanvas.Draw(win, pixel.IM.Moved(win.Bounds().Center()))
 		win.Update()
 	}
 }
