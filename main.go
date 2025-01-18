@@ -356,7 +356,7 @@ func run() {
 				vec4 color = texture(uTexture, t);
 
 				
-				vec3 spotLightColor = vec3(1, 0, 0);
+				vec3 spotLightColor = vec3(1, 0.5, 0.5);
 				vec3 ambientColor = vec3(0.23, 0.23, 0.38);
 				color.rgb = (color.rgb * ambientColor) + (color.rgb * intensity * spotLightColor);
 				fragColor = color;
@@ -431,7 +431,7 @@ func run() {
 		// clear all the canvases
 		win.Clear(pixel.RGB(0, 0, 0))
 		canvas.Clear(pixel.RGB(0.154, 0.139, 0.152))
-		shadowCanvas.Clear(pixel.Alpha(0.5))
+		shadowCanvas.Clear(pixel.Alpha(0.8))
 		debugCanvas.Clear(pixel.Alpha(0))
 		imd.Clear()
 
@@ -557,11 +557,11 @@ func run() {
 		var goodCorners []Corner
 		imd.Clear()
 		// make closest corners green
-		for i, c := range corners {
+		for _, c := range corners {
 			imd.Color = pixel.RGB(1, 1, 1)
-			if i > 100 {
-				break
-			}
+			// if i > 100 {
+			// 	break
+			// }
 			drawLine := true
 			// check every tile for intersections
 			for x := mouseTileX - tile_range; x <= mouseTileX+tile_range; x++ {
